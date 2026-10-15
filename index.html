@@ -57,13 +57,14 @@ function compress(file,max=1280,q=0.7){return new Promise((ok,no)=>{const u=URL.
  c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',q))};im.onerror=()=>{URL.revokeObjectURL(u);no(new Error('Не удалось прочитать изображение'))};im.src=u})}
 function viewPhoto(id){const d=PHOTOS.get(id);if(!d)return;document.getElementById('viewerImg').src=d;document.getElementById('viewer').style.display='flex'}
 function thumbs(list){list=(list||[]).filter(id=>PHOTOS.has(id));return list.length?`<img class="thumb" src="${PHOTOS.get(list[0])}" onclick="event.stopPropagation();viewPhoto('${list[0]}')">${list.length>1?'<span class="muted">📷'+list.length+'</span>':''}`:''}
-let PH=null; /* редактирование фото в диалоге: {list, added:[]} */
-function photoField(list,label){PH={list:[...(list||[])],added:[]};return `<label>${label}</label><div class="ph" id="phBox"></div><input type="file" id="phIn" accept="image/*" multiple onchange="addPhotos(this)"><div class="muted" id="phMsg"></div>`}
-function drawPh(){const b=document.getElementById('phBox');if(b)b.innerHTML=PH.list.map(id=>`<div><img src="${PHOTOS.get(id)||''}" onclick="viewPhoto('${id}')"><button type="button" title="Удалить" onclick="PH.list=PH.list.filter(x=>x!=='${id}');drawPh()">×</button></div>`).join('')||'<span class="muted">Нет фото</span>'}
-async function addPhotos(inp){const m=document.getElementById('phMsg');m.textContent='Обработка…';for(const f of inp.files){try{const id='ph_'+uid();await putPhoto(id,await compress(f));PH.list.push(id);PH.added.push(id)}catch(e){alert(e.message)}}inp.value='';m.textContent='';drawPh()}
+let PH=null,PHB=null; /* редактирование фото в диалоге: {list, added:[]}; PHB — фото велосипеда в форме арендатора */
+const PHS={PH:{sfx:''},PHB:{sfx:'B'}};const phObj=k=>k==='PHB'?PHB:PH;
+function photoField(list,label,k='PH'){const o={list:[...(list||[])],added:[]};if(k==='PHB')PHB=o;else{PH=o;PHB=null}const x=PHS[k].sfx;return `<label>${label}</label><div class="ph" id="phBox${x}"></div><input type="file" id="phIn${x}" accept="image/*" multiple onchange="addPhotos(this,'${k}')"><div class="muted" id="phMsg${x}"></div>`}
+function drawPh(k='PH'){const o=phObj(k);if(!o)return;const b=document.getElementById('phBox'+PHS[k].sfx);if(b)b.innerHTML=o.list.map(id=>`<div><img src="${PHOTOS.get(id)||''}" onclick="viewPhoto('${id}')"><button type="button" title="Удалить" onclick="phObj('${k}').list=phObj('${k}').list.filter(x=>x!=='${id}');drawPh('${k}')">×</button></div>`).join('')||'<span class="muted">Нет фото</span>'}
+async function addPhotos(inp,k='PH'){const o=phObj(k),m=document.getElementById('phMsg'+PHS[k].sfx);m.textContent='Обработка…';for(const f of inp.files){try{const id='ph_'+uid();await putPhoto(id,await compress(f));o.list.push(id);o.added.push(id)}catch(e){alert(e.message)}}inp.value='';m.textContent='';drawPh(k)}
 /* удалить из IndexedDB фото, на которые больше никто не ссылается */
 function gcPhotos(){const used=new Set();[...db.bikes,...db.clients].forEach(o=>(o.photos||[]).forEach(id=>used.add(id)));[...PHOTOS.keys()].forEach(id=>{if(!used.has(id))delPhoto(id)})}
-function withPhotos(owner){const prev=dlg.onclose;dlg.onclose=()=>{if(dlg.returnValue==='ok'){prev();}else{PH.added.forEach(delPhoto)}gcPhotos()};drawPh()}
+function withPhotos(owner){const prev=dlg.onclose;dlg.onclose=()=>{if(dlg.returnValue==='ok'){prev();}else{PH.added.forEach(delPhoto);if(PHB)PHB.added.forEach(delPhoto)}gcPhotos()};drawPh();drawPh('PHB')}
 /* Даты — строки YYYY-MM-DD, арифметика в днях по UTC (без проблем с переходом времени) */
 const DAY=86400000;const dnum=s=>Date.parse(s+'T00:00:00Z')/DAY;const dstr=n=>new Date(n*DAY).toISOString().slice(0,10);
 let TODAY_OVERRIDE=null;const today=()=>TODAY_OVERRIDE||(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
@@ -139,20 +140,43 @@ function rentalView(r){if(!r)return go('rentals');const c=calc(r),b=bike(r.bikeI
  <div class="card tw"><h2>Платежи</h2><table><tr><th>Дата</th><th>Сумма</th><th>Способ</th><th>Комментарий</th><th></th></tr>${r.payments.map(p=>`<tr><td>${fd(p.date)}</td><td>${rub(p.amount)}</td><td>${esc(p.method)}</td><td>${esc(p.note)}</td><td><button class="btn sm red" onclick="delPay('${r.id}','${p.id}')">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="muted">Нет платежей</td></tr>'}</table></div>
  <div class="card tw"><h2>График</h2><table><tr><th>#</th><th>Срок</th><th>Начислено</th><th>Оплачено</th><th>Статус</th></tr>${c.sch.map((x,i)=>`<tr class="${x.status==='долг'?'od':''}"><td>${i+1}</td><td>${fd(x.due)}</td><td>${rub(x.amount)}</td><td>${rub(x.paid)}</td><td class="${x.status==='оплачено'?'paid':x.status==='долг'?'debt':'muted'}">${x.status}</td></tr>`).join('')}</table></div>`}
 const dlg=document.getElementById('dlg'),dform=document.getElementById('dform');
-function openDlg(html,ok){dform.innerHTML=html+`<div><button class="btn" value="ok" id="dOk">Сохранить</button><button class="btn sec" value="cancel" formnovalidate>Отмена</button></div>`;dlg.returnValue='';dlg.showModal();dlg.onclose=()=>{if(dlg.returnValue==='ok'){ok(k=>document.getElementById(k).value);save();render()}}}
-function rentalDlg(){const fb=db.bikes.filter(b=>b.status==='free');if(!fb.length)return alert('Нет свободных велосипедов');
- openDlg(`<h2>Новая аренда</h2><label>Велосипед (свободные)</label><select id="nB">${fb.map(b=>`<option value="${b.id}">${esc(bname(b))} · ${esc(b.color)} · ${b.power} Вт</option>`).join('')}</select>
- <label>Арендатор</label><select id="nC" onchange="document.getElementById('nNew').style.display=this.value==='_new'?'block':'none'"><option value="_new">+ Новый арендатор</option>${db.clients.map(c=>`<option value="${c.id}" selected>${esc(c.name)} ${esc(c.phone)}</option>`).join('')}</select>
- <div id="nNew" style="display:${db.clients.length?'none':'block'}"><label>ФИО</label><input id="ncN"><label>Телефон</label><input id="ncP" type="tel"><label>Паспорт / заметки</label><input id="ncD"></div>
- <div class="row"><div><label>Дата начала</label><input id="nS" type="date" required value="${today()}"></div><div><label>Ставка в неделю, ₽</label><input id="nW" type="number" min="1" required value="${db.settings.defaultWeekly}" oninput="bcalc()"></div></div>
+const val=k=>{const e=document.getElementById(k);return e?e.value:''};
+function openDlg(html,ok,validate){dform.onsubmit=e=>{if(validate&&e.submitter&&e.submitter.value==='ok'){const m=validate(val);if(m){e.preventDefault();alert(m)}}};dform.innerHTML=html+`<div><button class="btn" value="ok" id="dOk">Сохранить</button><button class="btn sec" value="cancel" formnovalidate>Отмена</button></div>`;dlg.returnValue='';dlg.showModal();dlg.onclose=()=>{if(dlg.returnValue==='ok'){ok(k=>document.getElementById(k).value);save();render()}}}
+/* ===== Общие блоки формы: велосипед (выбрать / новый / без) и параметры аренды ===== */
+const freeBikes=()=>db.bikes.filter(b=>b.status==='free');
+function bikeSection(allowNone){const fb=freeBikes(),mode=fb.length?'pick':'new';
+ return `<div class="card" style="background:#f6f8fb"><h2>Велосипед</h2><div class="row" id="bkMode">
+ <label><input type="radio" name="bkm" value="pick" style="width:auto" ${mode==='pick'?'checked':''} ${fb.length?'':'disabled'} onchange="bkMode()"> Выбрать из имеющихся${fb.length?'':' (нет свободных)'}</label>
+ <label><input type="radio" name="bkm" value="new" style="width:auto" ${mode==='new'?'checked':''} onchange="bkMode()"> Добавить новый</label>
+ ${allowNone?`<label><input type="radio" name="bkm" value="none" style="width:auto" onchange="bkMode()"> Без велосипеда</label>`:''}</div>
+ <div id="bkPick"><input id="nBq" placeholder="Поиск: номер, VIN, трекер" oninput="bkFilter()"><select id="nB" style="margin-top:6px">${fb.map(b=>`<option value="${b.id}" data-q="${esc([b.num,b.model,b.vin,b.tracker,b.color].join(' ').toLowerCase())}">${esc(bname(b))} · ${esc(b.color)} · ${b.power} Вт${b.tracker?' · '+esc(b.tracker):''}</option>`).join('')}</select></div>
+ <div id="bkNew"><div class="row"><div><label>Номер</label><input id="nbN" value="№${db.bikes.length+1}"></div><div><label>Модель</label><input id="nbM"></div></div>
+ <div class="row"><div><label>VIN</label><input id="nbV"></div><div><label>Номер трекера</label><input id="nbTr"></div></div><div class="row"><div><label>Цвет</label><input id="nbC"></div><div><label>Год</label><input id="nbY" type="number" value="${new Date().getFullYear()}"></div></div>
+ <div class="row"><div><label>Мощность, Вт</label><input id="nbP" type="number" value="500"></div><div><label>Пробег, км (осмотр)</label><input id="nbK" type="number" value="0"></div></div>${photoField([],'Фото велосипеда','PHB')}</div></div>`}
+const bkm=()=>(document.querySelector('input[name=bkm]:checked')||{}).value||'none';
+function bkMode(){const m=bkm(),g=id=>document.getElementById(id);g('bkPick').style.display=m==='pick'?'block':'none';g('bkNew').style.display=m==='new'?'block':'none';const r=g('rentBox');if(r)r.style.display=m==='none'?'none':'block';const w=g('rentWrap');if(w)w.style.display=m==='none'?'none':'block'}
+function bkFilter(){const q=document.getElementById('nBq').value.toLowerCase().trim(),s=document.getElementById('nB');let first=null;[...s.options].forEach(o=>{const ok=!q||o.dataset.q.includes(q);o.hidden=!ok;if(ok&&!first)first=o});if(first&&s.selectedOptions[0]&&s.selectedOptions[0].hidden)s.value=first.value}
+const rentFields=()=>`<div class="row"><div><label>Дата начала</label><input id="nS" type="date" value="${today()}"></div><div><label>Ставка в неделю, ₽</label><input id="nW" type="number" min="1" value="${db.settings.defaultWeekly}" oninput="bcalc()"></div></div>
  <label><input type="checkbox" id="nBuy" style="width:auto" onchange="document.getElementById('nBuyBox').style.display=this.checked?'block':'none';bcalc()"> С выкупом</label>
  <div id="nBuyBox" style="display:none"><div class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="70000" oninput="bcalc()"></div><div><label>Недель</label><input id="nWk" type="number" value="20" oninput="bcalc('w')"></div></div><div class="muted" id="nHint"></div></div>
- <div class="row"><div><label>Залог, ₽</label><input id="nD" type="number" value="0"></div><div><label>Первый платёж сейчас, ₽</label><input id="nFirst" type="number" value="0"></div></div>`,
- v=>{const b=db.bikes.find(x=>x.id===v('nB'));let cid=v('nC');if(cid==='_new'){if(!v('ncN').trim())return alert('Введите ФИО');const c={id:uid(),name:v('ncN').trim(),phone:v('ncP'),passport:v('ncD')};db.clients.push(c);cid=c.id}
-  const buy=document.getElementById('nBuy').checked;const r={id:uid(),bikeId:b.id,clientId:cid,start:v('nS'),weekly:+v('nW'),deposit:+v('nD')||0,buyout:buy,buyoutPrice:buy?+v('nP'):0,weeks:buy?+v('nWk'):0,payments:[],end:null,mileageStart:b.mileage};
-  if(buy&&(!r.buyoutPrice||!r.weeks))return alert('Укажите цену и число недель');
-  if(+v('nFirst')>0)r.payments.push({id:uid(),date:today(),amount:+v('nFirst'),method:'Наличные',note:'первый платёж'});
-  db.rentals.push(r);b.status=buy?'buyout':'rent';checkBuyout(r);tab='rentals';cur=r.id})}
+ <div class="row"><div><label>Залог, ₽</label><input id="nD" type="number" value="0"></div><div><label>Первый платёж сейчас, ₽</label><input id="nFirst" type="number" value="0"></div></div>`;
+/* проверки до каких-либо изменений — сохранение атомарное */
+function bikeErr(v){const m=bkm();if(m==='pick'&&!db.bikes.some(b=>b.id===v('nB')&&b.status==='free'))return 'Выберите велосипед';
+ if(m==='new'){const vin=v('nbV').trim().toUpperCase();if(!vin)return 'Введите VIN нового велосипеда';if(db.bikes.some(b=>(b.vin||'').toUpperCase()===vin))return 'Велосипед с таким VIN уже есть'}return ''}
+function rentErr(v){if(!(+v('nW')>0))return 'Укажите ставку в неделю';if(!v('nS'))return 'Укажите дату начала';if(document.getElementById('nBuy').checked&&(!(+v('nP')>0)||!(+v('nWk')>0)))return 'Укажите цену и число недель';return ''}
+function takeBike(v){const m=bkm();if(m==='pick')return db.bikes.find(x=>x.id===v('nB'));if(m!=='new')return null;
+ const b={id:uid(),num:v('nbN'),model:v('nbM'),vin:v('nbV').trim().toUpperCase(),tracker:v('nbTr').trim(),photos:PHB?PHB.list:[],color:v('nbC'),year:+v('nbY'),power:+v('nbP'),mileage:+v('nbK'),status:'free'};db.bikes.push(b);return b}
+function makeRental(b,cid,v){const buy=document.getElementById('nBuy').checked;const r={id:uid(),bikeId:b.id,clientId:cid,start:v('nS'),weekly:+v('nW'),deposit:+v('nD')||0,buyout:buy,buyoutPrice:buy?+v('nP'):0,weeks:buy?+v('nWk'):0,payments:[],end:null,mileageStart:b.mileage};
+ if(+v('nFirst')>0)r.payments.push({id:uid(),date:today(),amount:+v('nFirst'),method:'Наличные',note:'первый платёж'});
+ db.rentals.push(r);b.status=buy?'buyout':'rent';checkBuyout(r);return r}
+function rentalDlg(){
+ openDlg(`<h2>Новая аренда</h2>${bikeSection(false)}
+ <label>Арендатор</label><select id="nC" onchange="document.getElementById('nNew').style.display=this.value==='_new'?'block':'none'"><option value="_new">+ Новый арендатор</option>${db.clients.map(c=>`<option value="${c.id}" selected>${esc(c.name)} ${esc(c.phone)}</option>`).join('')}</select>
+ <div id="nNew" style="display:${db.clients.length?'none':'block'}"><label>ФИО</label><input id="ncN"><label>Телефон</label><input id="ncP" type="tel"><label>Паспорт / заметки</label><input id="ncD"></div>
+ ${rentFields()}`,
+ v=>{const nc=v('nC')==='_new';let cid=v('nC');const b=takeBike(v);if(nc){const c={id:uid(),name:v('ncN').trim(),phone:v('ncP'),passport:v('ncD'),photos:[]};db.clients.push(c);cid=c.id}
+  const r=makeRental(b,cid,v);tab='rentals';cur=r.id},
+ v=>bikeErr(v)||(v('nC')==='_new'&&!v('ncN').trim()?'Введите ФИО':'')||rentErr(v));withPhotos();bkMode()}
 function bcalc(src){const g=id=>document.getElementById(id);if(!g('nBuy').checked)return;const P=+g('nP').value,W=+g('nWk').value;
  if(src==='w'&&W>0)g('nW').value=Math.ceil(P/W);g('nHint').textContent=`${W} нед × ${rub(+g('nW').value)} = ${rub(W*+g('nW').value)} (выкуп ${rub(P)}; последний платёж — остаток)`;
  if(+g('nW').value*W<P)g('nHint').textContent+=' ⚠ ставка×недели меньше цены выкупа!'}
@@ -183,6 +207,12 @@ function delBike(id){const b=db.bikes.find(x=>x.id===id);if(['rent','buyout'].in
 V.clients=()=>`<button class="btn" onclick="clientDlg()">+ Арендатор</button><div class="card tw"><table><tr><th>Фото</th><th>ФИО</th><th>Телефон</th><th>Паспорт / заметки</th><th>Аренд</th><th>Долг</th><th></th></tr>
  ${db.clients.map(c=>{const d=active().filter(r=>r.clientId===c.id).reduce((s,r)=>s+calc(r).totalDebt,0);return `<tr class="${d?'od':''}"><td>${thumbs(c.photos)}</td><td>${esc(c.name)}</td><td><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></td><td>${esc(c.passport)}</td><td>${db.rentals.filter(r=>r.clientId===c.id).length}</td><td class="${d?'debt':''}">${rub(d)}</td><td><button class="btn sm sec" onclick="clientDlg('${c.id}')">✎</button><button class="btn sm red" onclick="delClient('${c.id}')">✕</button></td></tr>`}).join('')}</table></div>`;
 function clientDlg(id){const c=db.clients.find(x=>x.id===id)||{name:'',phone:'',passport:'',photos:[]};
+ if(!id){openDlg(`<h2>Добавить арендатора</h2><label>ФИО</label><input id="cN" required><label>Телефон</label><input id="cP" type="tel"><label>Паспорт / заметки</label><textarea id="cD"></textarea>${photoField([],'Фото арендатора (паспорт, документы)')}
+ ${bikeSection(true)}<div id="rentWrap"><label><input type="checkbox" id="nRent" style="width:auto" checked onchange="document.getElementById('rentBox').style.display=this.checked?'block':'none'"> Сразу оформить аренду</label><div id="rentBox">${rentFields()}</div></div>`,
+  v=>{const c={id:uid(),name:v('cN').trim(),phone:v('cP'),passport:v('cD'),photos:PH.list};const b=takeBike(v);db.clients.push(c);
+   if(b&&document.getElementById('nRent').checked){const r=makeRental(b,c.id,v);tab='rentals';cur=r.id}},
+  v=>!v('cN').trim()?'Введите ФИО':bkm()==='none'?'':bikeErr(v)||(document.getElementById('nRent').checked?rentErr(v):''));withPhotos();bkMode();
+  const rw=()=>{document.getElementById('rentBox').style.display=document.getElementById('nRent').checked&&bkm()!=='none'?'block':'none'};document.getElementById('bkMode').addEventListener('change',rw);rw();return}
  openDlg(`<h2>Арендатор</h2><label>ФИО</label><input id="cN" required value="${esc(c.name)}"><label>Телефон</label><input id="cP" type="tel" value="${esc(c.phone)}"><label>Паспорт / заметки</label><textarea id="cD">${esc(c.passport)}</textarea>${photoField(c.photos,'Фото (паспорт, документы)')}`,
  v=>{Object.assign(c,{name:v('cN'),phone:v('cP'),passport:v('cD'),photos:PH.list});delete c.demo;if(!id){c.id=uid();db.clients.push(c)}});withPhotos()}
 function delClient(id){if(db.rentals.some(r=>r.clientId===id&&!r.end))return alert('У арендатора есть активная аренда');if(confirm('Удалить?')){db.clients=db.clients.filter(x=>x.id!==id);save();gcPhotos();render()}}

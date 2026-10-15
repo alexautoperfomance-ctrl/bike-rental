@@ -56,7 +56,12 @@ details.sec>summary h2{display:inline}details.sec>summary::after{content:' ▸';
  .tw table,.tw tbody,.tw tr,.tw td{display:block;width:100%}.tw tr:has(th){display:none}
  .tw tr{border-bottom:1px solid #eee;padding:5px 0}.tw td{display:inline-block;width:auto;border:0;padding:1px 8px 1px 0;font-size:.86rem}
  .tw td[data-l]::before{content:attr(data-l) ': ';color:#889;font-size:.75rem}.tw td:first-child{font-weight:600}
-}</style>
+}
+.blist{padding:4px 8px}.brow{border-bottom:1px solid #eef}.brow:last-child{border:0}
+.brow>summary{display:grid;grid-template-columns:auto 1fr auto;gap:2px 8px;align-items:center;padding:5px 0;font-size:.8rem}
+.brow small{display:block;color:#778;font-size:.72rem;word-break:break-all}.bm{min-width:0}.bs{text-align:right}.bs small{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brow[open]>summary{background:#f6f8fb}.brow .det{padding-bottom:6px}
+</style>
 <script>
 const KEY='ebikeRental.v2';
 const TABS=[['dash','Сводка'],['overdue','Просрочки'],['rentals','Аренды'],['bikes','Велосипеды'],['clients','Арендаторы'],['data','Данные']];
@@ -190,10 +195,16 @@ V.overdue=()=>{const L=active().map(r=>({r,c:calc(r)})).filter(x=>x.c.debt>0).so
  return `<div class="card"><h2>Просрочки (${L.length})</h2><p class="muted">Пеня: ${rub(db.settings.penaltyPerDay)} / день (меняется во вкладке «Данные»)</p><div class="tw"><table><tr><th>Арендатор</th><th>Телефон</th><th>Велосипед</th><th>Дней</th><th>Долг</th><th>Пеня</th><th>Итого</th><th></th></tr>
  ${L.map(({r,c})=>`<tr class="od"><td>${esc(client(r.clientId).name)}</td><td><a href="tel:${esc(client(r.clientId).phone)}">${esc(client(r.clientId).phone)}</a></td><td>${esc(bike(r.bikeId).num)}</td><td class="debt">${c.odDays}</td><td class="debt">${rub(c.debt)}</td><td>${rub(c.penalty)}</td><td class="debt">${rub(c.totalDebt)}</td><td><button class="btn sm" onclick="go('rentals','${r.id}')">Открыть</button></td></tr>`).join('')||'<tr><td colspan="8" class="muted">Просрочек нет 🎉</td></tr>'}</table></div></div>`};
 let RF='active';
+/* сквозная нумерация по дате старта (порядок договоров): №1 — самая ранняя; при равной дате — порядок создания */
+const rentOrder=()=>db.rentals.map((r,i)=>[r,i]).sort((a,b)=>a[0].start.localeCompare(b[0].start)||a[1]-b[1]).map(x=>x[0]);
+const rentSeq=()=>{const m=new Map();rentOrder().forEach((r,i)=>m.set(r.id,i+1));return m};
+/* арендаторы/велосипеды по самой ранней аренде; без аренды — в конце (в исходном порядке) */
+function orderBy(list,key){const O=rentOrder(),first=new Map();O.forEach((r,i)=>{const k=key(r);if(!first.has(k))first.set(k,i)});
+ return list.map((x,i)=>[x,first.has(x.id)?first.get(x.id):1e9+i]).sort((a,b)=>a[1]-b[1]).map(x=>x[0])}
 V.rentals=()=>{if(cur)return rentalView(db.rentals.find(r=>r.id===cur));
- const L=db.rentals.filter(r=>RF==='all'||(RF==='active'?!r.end:!!r.end)).map(r=>[r,db.rentals.indexOf(r)]).sort((a,b)=>a[0].start.localeCompare(b[0].start)||a[1]-b[1]).map(x=>x[0]);
+ const SQ=rentSeq(),L=rentOrder().filter(r=>RF==='all'||(RF==='active'?!r.end:!!r.end));
  return `<button class="btn" onclick="rentalDlg()">+ Новая аренда</button><select style="width:auto" onchange="RF=this.value;render()">${[['active','Активные'],['closed','Завершённые'],['all','Все']].map(([k,v])=>`<option value="${k}" ${RF===k?'selected':''}>${v}</option>`).join('')}</select>
- <div class="grid" style="margin-top:10px">${L.map((r,i)=>{const c=calc(r);return `<details class="card rcard ${c.debt>0&&!r.end?'overdue':''}" data-id="${r.id}"><summary class="sum"><span class="seq">${i+1}</span><b>${esc(client(r.clientId).name)}</b> <span>${esc(bike(r.bikeId).num)}</span> ${r.buyout?'<span class="badge buyout">выкуп</span>':''} ${r.end?`<span class="badge owned">${esc(r.closed||'завершена')}</span>`:''}
+ <div class="grid" style="margin-top:10px">${L.map(r=>{const c=calc(r),i=SQ.get(r.id)-1;return `<details class="card rcard ${c.debt>0&&!r.end?'overdue':''}" data-id="${r.id}"><summary class="sum"><span class="seq">${i+1}</span><b>${esc(client(r.clientId).name)}</b> <span>${esc(bike(r.bikeId).num)}</span> ${r.buyout?'<span class="badge buyout">выкуп</span>':''} ${r.end?`<span class="badge owned">${esc(r.closed||'завершена')}</span>`:''}
  <span class="muted">${rub(curWeekly(r))}/нед</span>${c.debt>0&&!r.end?`<span class="debt">долг ${rub(c.debt)}</span>`:''}<span class="chev">▸</span></summary><div class="det">
  <div class="muted">с ${fd(r.start)} · ${rub(curWeekly(r))}/нед${partsBrief(r)} · оплачено ${rub(c.paid)}</div>
  ${r.buyout?`<div>Выкуп: ${rub(c.towards)} из ${rub(r.buyoutPrice)} (${c.pct}%), осталось ${rub(c.remaining)}, недель ${c.weeksLeft}</div>`:''}
@@ -298,12 +309,14 @@ function closeDlg(id){const r=db.rentals.find(x=>x.id===id),b=bike(r.bikeId),c=c
  <label>Статус велосипеда</label><select id="cS"><option value="free">свободен</option><option value="repair">ремонт</option></select>`,
  v=>{r.end=v('cE');r.closed='возврат';r.mileageEnd=+v('cKm');const bb=db.bikes.find(x=>x.id===r.bikeId);if(bb){bb.mileage=+v('cKm');bb.status=v('cS')}})}
 let BF={q:'',status:''};
-V.bikes=()=>{const q=BF.q.toLowerCase();const L=db.bikes.filter(b=>(!BF.status||b.status===BF.status)&&(!q||[b.vin,b.tracker,b.color,b.num,b.brand,b.model,b.battery1,b.battery2].join(' ').toLowerCase().includes(q)));
+V.bikes=()=>{const q=BF.q.toLowerCase();const ALL=orderBy(db.bikes,r=>r.bikeId),BSQ=new Map(ALL.map((b,i)=>[b.id,i+1]));const L=ALL.filter(b=>(!BF.status||b.status===BF.status)&&(!q||[b.vin,b.tracker,b.color,b.num,b.brand,b.model,b.battery1,b.battery2].join(' ').toLowerCase().includes(q)));
  return `<div class="card"><div class="row"><div><label>Поиск: VIN, трекер, цвет, номер, марка, модель, АКБ</label><input id="bq" value="${esc(BF.q)}" oninput="BF.q=this.value;render();const e=document.getElementById('bq');e.focus();e.setSelectionRange(99,99)"></div>
  <div><label>Статус</label><select onchange="BF.status=this.value;render()"><option value="">Все</option>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${BF.status===k?'selected':''}>${v}</option>`).join('')}</select></div></div>
  <button class="btn" onclick="bikeDlg()">+ Велосипед</button> <span class="muted">Показано ${L.length} из ${db.bikes.length}</span></div>
- <div class="card tw"><table><tr><th>Фото</th><th>№ / марка, модель</th><th>VIN</th><th>Трекер</th><th>АКБ</th><th>Цвет</th><th>Год</th><th>Вт</th><th>Пробег</th><th>Статус</th><th></th></tr>
- ${L.map(b=>`<tr><td>${thumbs(b.photos)}</td><td>${esc(b.num)} ${esc([b.brand,b.model].filter(Boolean).join(' '))}</td><td>${esc(b.vin)}</td><td>${esc(b.tracker)}</td><td class="bat">${esc(b.battery1)}${b.battery2?'<br>'+esc(b.battery2):''}</td><td>${esc(b.color)}</td><td>${b.year}</td><td>${b.power}</td><td>${b.mileage} км</td><td><span class="badge ${ST_CLS[b.status]}">${ST[b.status]}</span></td><td><button class="btn sm sec" onclick="bikeDlg('${b.id}')">✎</button><button class="btn sm red" onclick="delBike('${b.id}')">✕</button></td></tr>`).join('')}</table></div>`};
+ <div class="card blist">${L.map(b=>{const ar=db.rentals.find(r=>r.bikeId===b.id&&!r.end)||(b.status==='owned'?[...db.rentals].reverse().find(r=>r.bikeId===b.id):null),cl=ar?client(ar.clientId).name:'';
+ return `<details class="brow" data-id="${b.id}"><summary><span class="seq">${BSQ.get(b.id)}</span><span class="bm"><b>${esc(b.num)}</b> ${esc([b.brand,b.model].filter(Boolean).join(' '))}<small>${esc(b.vin)||'—'}</small></span><span class="bs"><span class="badge ${ST_CLS[b.status]}">${ST[b.status]}</span><small>${esc(cl)}</small></span></summary>
+ <div class="det">${thumbs(b.photos)}<div class="muted">${[b.tracker&&'трекер '+esc(b.tracker),esc(b.color),b.year,b.power?b.power+' Вт':'',(b.mileage||0)+' км'].filter(Boolean).join(' · ')}</div>${b.battery1||b.battery2?`<div class="muted bat">АКБ: ${esc(b.battery1)}${b.battery2?' / '+esc(b.battery2):''}</div>`:''}${ar?`<div class="muted">с ${fd(ar.start)}${ar.end?'':' · '+rub(curWeekly(ar))+'/нед'}</div>`:''}
+ ${ar&&!ar.end?`<button class="btn sm" onclick="go('rentals','${ar.id}')">Аренда</button>`:''}<button class="btn sm sec" onclick="bikeDlg('${b.id}')">✎ Изменить</button><button class="btn sm red" onclick="delBike('${b.id}')">✕</button></div></details>`}).join('')||'<div class="muted">Нет велосипедов</div>'}</div>`};
 function bikeDlg(id){const b=db.bikes.find(x=>x.id===id)||{num:'№'+(db.bikes.length+1),brand:'',battery1:'',battery2:'',model:'',vin:'',tracker:'',photos:[],color:'',year:new Date().getFullYear(),power:500,mileage:0,status:'free'};const busy=['rent','buyout'].includes(b.status);
  openDlg(`<h2>${id?'Редактировать':'Новый'} велосипед</h2><div class="row"><div><label>Номер</label><input id="bN" value="${esc(b.num)}"></div><div><label>Марка</label><input id="bBr" value="${esc(b.brand)}"></div><div><label>Модель</label><input id="bM" value="${esc(b.model)}"></div></div>
  <div class="row"><div><label>VIN</label><input id="bV" required value="${esc(b.vin)}"></div><div><label>Номер трекера</label><input id="bTr" value="${esc(b.tracker)}"></div></div><div class="row"><div><label>Цвет</label><input id="bC" value="${esc(b.color)}"></div><div><label>Год</label><input id="bY" type="number" value="${b.year}"></div></div>
@@ -313,8 +326,8 @@ function bikeDlg(id){const b=db.bikes.find(x=>x.id===id)||{num:'№'+(db.bikes.l
  v=>{Object.assign(b,{num:v('bN'),brand:v('bBr').trim(),battery1:v('bA1').trim(),battery2:v('bA2').trim(),model:v('bM'),vin:v('bV').trim().toUpperCase(),tracker:v('bTr').trim(),photos:PH.list,color:v('bC'),year:+v('bY'),power:+v('bP'),mileage:+v('bK')});if(!busy)b.status=v('bS');delete b.demo;if(!id){b.id=uid();db.bikes.push(b)}});withPhotos()}
 function delBike(id){const b=db.bikes.find(x=>x.id===id);if(['rent','buyout'].includes(b.status))return alert('Велосипед в аренде');if(confirm('Удалить '+b.num+'?')){db.bikes=db.bikes.filter(x=>x!==b);save();gcPhotos();render()}}
 V.clients=()=>`<button class="btn" onclick="clientDlg()">+ Арендатор</button> <span class="muted">${db.clients.length} чел.</span><div class="grid" style="margin-top:8px">
- ${db.clients.map(c=>{const A=active().filter(r=>r.clientId===c.id),d=A.reduce((s,r)=>s+calc(r).totalDebt,0),n=db.rentals.filter(r=>r.clientId===c.id).length;
- return `<details class="card ccard ${d?'overdue':''}" data-id="${c.id}"><summary class="sum">${thumbs(c.photos)}<b>${esc(c.name)}</b>${A.map(r=>`<span class="muted">${esc(bike(r.bikeId).num)} ${rub(curWeekly(r))}/нед</span>${r.buyout?'<span class="badge buyout">выкуп</span>':''}`).join('')}${d?`<span class="debt">долг ${rub(d)}</span>`:''}<span class="chev">▸</span></summary>
+ ${orderBy(db.clients,r=>r.clientId).map((c,ci)=>{const A=active().filter(r=>r.clientId===c.id),d=A.reduce((s,r)=>s+calc(r).totalDebt,0),n=db.rentals.filter(r=>r.clientId===c.id).length;
+ return `<details class="card ccard ${d?'overdue':''}" data-id="${c.id}"><summary class="sum"><span class="seq">${ci+1}</span>${thumbs(c.photos)}<b>${esc(c.name)}</b>${A.map(r=>`<span class="muted">${esc(bike(r.bikeId).num)} ${rub(curWeekly(r))}/нед</span>${r.buyout?'<span class="badge buyout">выкуп</span>':''}`).join('')}${d?`<span class="debt">долг ${rub(d)}</span>`:''}<span class="chev">▸</span></summary>
  <div class="det"><div><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a> · аренд: ${n} · долг <span class="${d?'debt':''}">${rub(d)}</span></div>${c.passport?`<div class="muted">${clamp(c.passport)}</div>`:''}
  ${(c.photos||[]).filter(id=>PHOTOS.has(id)).length?`<div class="ph">${c.photos.filter(id=>PHOTOS.has(id)).map(id=>`<div><img src="${PHOTOS.get(id)}" onclick="viewPhoto('${id}')"></div>`).join('')}</div>`:''}
  ${A.map(r=>`<button class="btn sm" onclick="go('rentals','${r.id}')">Аренда ${esc(bike(r.bikeId).num)}</button>`).join('')}<button class="btn sm sec" onclick="clientDlg('${c.id}')">✎</button><button class="btn sm red" onclick="delClient('${c.id}')">✕</button></div></details>`}).join('')||'<div class="card muted">Нет арендаторов</div>'}</div>`;

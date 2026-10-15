@@ -136,7 +136,7 @@ function rentalView(r){if(!r)return go('rentals');const c=calc(r),b=bike(r.bikeI
  <div class="muted">${esc(cl.phone)} · ${esc(cl.passport)}</div><div>Старт: ${fd(r.start)} · ${rub(r.weekly)}/нед · залог ${rub(r.deposit)} ${r.end?'· закрыта '+fd(r.end)+' ('+esc(r.closed||'')+')':''}</div>
  <div class="stats" style="margin-top:8px"><div><div class="muted">Оплачено</div><div class="big" id="rvPaid">${rub(c.paid)}</div></div><div><div class="muted">Долг</div><div class="big ${c.debt?'debt':''}" id="rvDebt">${rub(c.debt)}</div>${c.debt?`<div class="debt">${c.odDays} дн., пеня ${rub(c.penalty)}</div>`:''}</div>
  ${r.buyout?`<div><div class="muted">Выкуп ${rub(r.buyoutPrice)}</div><div class="big" id="rvRemain">осталось ${rub(c.remaining)}</div><div class="muted">${c.pct}% · недель осталось: ${c.weeksLeft}</div></div>`:''}</div>
- ${r.end?'':`<button class="btn" onclick="payDlg('${r.id}')">+ Платёж</button><button class="btn sec" onclick="closeDlg('${r.id}')">Завершить аренду</button>`}</div>
+ ${r.end?'':`<button class="btn" onclick="payDlg('${r.id}')">+ Платёж</button><button class="btn sec" onclick="markWeeksDlg('${r.id}')">Отметить оплаченные недели</button><button class="btn sec" onclick="editRentalDlg('${r.id}')">✎ Изменить</button><button class="btn sec" onclick="closeDlg('${r.id}')">Завершить аренду</button>`}</div>
  <div class="card tw"><h2>Платежи</h2><table><tr><th>Дата</th><th>Сумма</th><th>Способ</th><th>Комментарий</th><th></th></tr>${r.payments.map(p=>`<tr><td>${fd(p.date)}</td><td>${rub(p.amount)}</td><td>${esc(p.method)}</td><td>${esc(p.note)}</td><td><button class="btn sm red" onclick="delPay('${r.id}','${p.id}')">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="muted">Нет платежей</td></tr>'}</table></div>
  <div class="card tw"><h2>График</h2><table><tr><th>#</th><th>Срок</th><th>Начислено</th><th>Оплачено</th><th>Статус</th></tr>${c.sch.map((x,i)=>`<tr class="${x.status==='долг'?'od':''}"><td>${i+1}</td><td>${fd(x.due)}</td><td>${rub(x.amount)}</td><td>${rub(x.paid)}</td><td class="${x.status==='оплачено'?'paid':x.status==='долг'?'debt':'muted'}">${x.status}</td></tr>`).join('')}</table></div>`}
 const dlg=document.getElementById('dlg'),dform=document.getElementById('dform');
@@ -156,10 +156,28 @@ function bikeSection(allowNone){const fb=freeBikes(),mode=fb.length?'pick':'new'
 const bkm=()=>(document.querySelector('input[name=bkm]:checked')||{}).value||'none';
 function bkMode(){const m=bkm(),g=id=>document.getElementById(id);g('bkPick').style.display=m==='pick'?'block':'none';g('bkNew').style.display=m==='new'?'block':'none';const r=g('rentBox');if(r)r.style.display=m==='none'?'none':'block';const w=g('rentWrap');if(w)w.style.display=m==='none'?'none':'block'}
 function bkFilter(){const q=document.getElementById('nBq').value.toLowerCase().trim(),s=document.getElementById('nB');let first=null;[...s.options].forEach(o=>{const ok=!q||o.dataset.q.includes(q);o.hidden=!ok;if(ok&&!first)first=o});if(first&&s.selectedOptions[0]&&s.selectedOptions[0].hidden)s.value=first.value}
-const rentFields=()=>`<div class="row"><div><label>Дата начала</label><input id="nS" type="date" value="${today()}"></div><div><label>Ставка в неделю, ₽</label><input id="nW" type="number" min="1" value="${db.settings.defaultWeekly}" oninput="bcalc()"></div></div>
- <label><input type="checkbox" id="nBuy" style="width:auto" onchange="document.getElementById('nBuyBox').style.display=this.checked?'block':'none';bcalc()"> С выкупом</label>
- <div id="nBuyBox" style="display:none"><div class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="70000" oninput="bcalc()"></div><div><label>Недель</label><input id="nWk" type="number" value="20" oninput="bcalc('w')"></div></div><div class="muted" id="nHint"></div></div>
- <div class="row"><div><label>Залог, ₽</label><input id="nD" type="number" value="0"></div><div><label>Первый платёж сейчас, ₽</label><input id="nFirst" type="number" value="0"></div></div>`;
+const rentFields=()=>`<div class="row"><div><label>Дата начала</label><input id="nS" type="date" value="${today()}" oninput="rinfo()" onchange="rinfo()"></div><div><label>Ставка в неделю, ₽</label><input id="nW" type="number" min="1" value="${db.settings.defaultWeekly}" oninput="bcalc();rinfo()"></div></div>
+ <label><input type="checkbox" id="nBuy" style="width:auto" onchange="document.getElementById('nBuyBox').style.display=this.checked?'block':'none';bcalc();rinfo()"> С выкупом</label>
+ <div id="nBuyBox" style="display:none"><div class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="70000" oninput="bcalc();rinfo()"></div><div><label>Недель</label><input id="nWk" type="number" value="20" oninput="bcalc('w');rinfo()"></div></div><div class="muted" id="nHint"></div></div>
+ <div class="card" style="background:#eef6f1;margin:8px 0" id="nInfo"></div>
+ <div class="row"><div><label>Уже оплачено недель</label><input id="nPaidW" type="number" min="0" value="1" oninput="this.dataset.t=1;document.getElementById('nPaidSum').value=''">
+ <button type="button" class="btn sm sec" onclick="setPaidW('all')">все оплачены</button><button type="button" class="btn sm sec" onclick="setPaidW(0)">0</button></div>
+ <div><label>или сумма, ₽ (вместо недель)</label><input id="nPaidSum" type="number" min="0" placeholder="необязательно"></div></div>
+ <div class="muted">Оплаченные недели запишутся платежами на даты начислений (способ «перенос», «ввод истории»).</div>
+ <div class="row"><div><label>Залог, ₽</label><input id="nD" type="number" value="0"></div><div><label>Доп. платёж сегодня, ₽</label><input id="nFirst" type="number" value="0"></div></div>`;
+/* ===== Ввод истории: расчёт по дате старта (платёж авансом: старт, далее каждые 7 дней) ===== */
+const tmpRental=v=>{const buy=document.getElementById('nBuy').checked;return {start:v('nS')||today(),weekly:+v('nW')||0,buyout:buy,buyoutPrice:buy?+v('nP'):0,weeks:buy?+v('nWk'):0,payments:[],end:null}};
+function dueInfo(r){const t=dnum(today()),s=dnum(r.start);let n=s>t?0:Math.floor((t-s)/7)+1;if(r.buyout)n=Math.min(n,r.weeks);
+ const sch=schedule(r,dstr(Math.max(t,s)+7*(n+1)));const amt=sch.slice(0,n).reduce((a,x)=>a+x.amount,0);return {elapsed:s>t?0:Math.floor((t-s)/7),n,amt,sch}}
+function rinfo(){const g=id=>document.getElementById(id);if(!g('nInfo')||!g('nS'))return;const r=tmpRental(val),d=dueInfo(r);
+ g('nInfo').innerHTML=`Прошло недель: <b id="iEl">${d.elapsed}</b> · платежей к оплате на сегодня: <b id="iN">${d.n}</b> · сумма к сегодня: <b id="iAmt">${rub(d.amt)}</b>${r.buyout?` <br>Выкуп: всего недель <b>${r.weeks}</b>, осталось недель <b id="iLeft">${Math.max(0,r.weeks-d.n)}</b>`:''}`;
+ const w=g('nPaidW');if(w&&!w.dataset.t)w.value=d.n}
+function setPaidW(x){const w=document.getElementById('nPaidW');w.dataset.t=1;document.getElementById('nPaidSum').value='';w.value=x==='all'?dueInfo(tmpRental(val)).n:x}
+/* платежи «ввод истории»: по одному на дату каждой оплаченной недели (или распределить сумму) */
+function histPayments(r,weeks,sum){const sch=schedule(r,dstr(dnum(r.start)+7*(Math.max(weeks,1)+(sum>0?Math.ceil(sum/(r.weekly||1)):0)+1)));const out=[];
+ if(sum>0){let left=sum;for(const x of sch){if(left<=0.001)break;const a=Math.min(left,x.amount);out.push({id:uid(),date:x.due,amount:a,method:'перенос',note:'ввод истории'});left-=a}
+  if(left>0.001&&out.length)out[out.length-1].amount+=left}
+ else sch.slice(0,weeks).forEach(x=>out.push({id:uid(),date:x.due,amount:x.amount,method:'перенос',note:'ввод истории'}));return out}
 /* проверки до каких-либо изменений — сохранение атомарное */
 function bikeErr(v){const m=bkm();if(m==='pick'&&!db.bikes.some(b=>b.id===v('nB')&&b.status==='free'))return 'Выберите велосипед';
  if(m==='new'){const vin=v('nbV').trim().toUpperCase();if(!vin)return 'Введите VIN нового велосипеда';if(db.bikes.some(b=>(b.vin||'').toUpperCase()===vin))return 'Велосипед с таким VIN уже есть'}return ''}
@@ -167,6 +185,7 @@ function rentErr(v){if(!(+v('nW')>0))return 'Укажите ставку в не
 function takeBike(v){const m=bkm();if(m==='pick')return db.bikes.find(x=>x.id===v('nB'));if(m!=='new')return null;
  const b={id:uid(),num:v('nbN'),model:v('nbM'),vin:v('nbV').trim().toUpperCase(),tracker:v('nbTr').trim(),photos:PHB?PHB.list:[],color:v('nbC'),year:+v('nbY'),power:+v('nbP'),mileage:+v('nbK'),status:'free'};db.bikes.push(b);return b}
 function makeRental(b,cid,v){const buy=document.getElementById('nBuy').checked;const r={id:uid(),bikeId:b.id,clientId:cid,start:v('nS'),weekly:+v('nW'),deposit:+v('nD')||0,buyout:buy,buyoutPrice:buy?+v('nP'):0,weeks:buy?+v('nWk'):0,payments:[],end:null,mileageStart:b.mileage};
+ r.payments.push(...histPayments(r,Math.max(0,Math.floor(+v('nPaidW')||0)),+v('nPaidSum')||0));
  if(+v('nFirst')>0)r.payments.push({id:uid(),date:today(),amount:+v('nFirst'),method:'Наличные',note:'первый платёж'});
  db.rentals.push(r);b.status=buy?'buyout':'rent';checkBuyout(r);return r}
 function rentalDlg(){
@@ -176,7 +195,7 @@ function rentalDlg(){
  ${rentFields()}`,
  v=>{const nc=v('nC')==='_new';let cid=v('nC');const b=takeBike(v);if(nc){const c={id:uid(),name:v('ncN').trim(),phone:v('ncP'),passport:v('ncD'),photos:[]};db.clients.push(c);cid=c.id}
   const r=makeRental(b,cid,v);tab='rentals';cur=r.id},
- v=>bikeErr(v)||(v('nC')==='_new'&&!v('ncN').trim()?'Введите ФИО':'')||rentErr(v));withPhotos();bkMode()}
+ v=>bikeErr(v)||(v('nC')==='_new'&&!v('ncN').trim()?'Введите ФИО':'')||rentErr(v));withPhotos();bkMode();rinfo()}
 function bcalc(src){const g=id=>document.getElementById(id);if(!g('nBuy').checked)return;const P=+g('nP').value,W=+g('nWk').value;
  if(src==='w'&&W>0)g('nW').value=Math.ceil(P/W);g('nHint').textContent=`${W} нед × ${rub(+g('nW').value)} = ${rub(W*+g('nW').value)} (выкуп ${rub(P)}; последний платёж — остаток)`;
  if(+g('nW').value*W<P)g('nHint').textContent+=' ⚠ ставка×недели меньше цены выкупа!'}
@@ -186,6 +205,17 @@ function payDlg(id){const r=db.rentals.find(x=>x.id===id),c=calc(r);
  <label>Способ</label><select id="pM">${METHODS.map(m=>`<option>${m}</option>`).join('')}</select><label>Комментарий</label><input id="pN">`,
  v=>{r.payments.push({id:uid(),date:v('pD'),amount:+v('pA'),method:v('pM'),note:v('pN')});r.payments.sort((a,b)=>a.date.localeCompare(b.date));if(checkBuyout(r))alert('Велосипед полностью выкуплен!')})}
 function delPay(rid,pid){if(!confirm('Удалить платёж?'))return;const r=db.rentals.find(x=>x.id===rid);r.payments=r.payments.filter(p=>p.id!==pid);save();render()}
+function unpaidWeeks(r,N){const c=calc(r,dstr(dnum(today())+7*(N+1)));return c.sch.filter(x=>x.status!=='оплачено').slice(0,N).map(x=>({due:x.due,amount:x.amount-x.paid}))}
+function markWeeksDlg(id){const r=db.rentals.find(x=>x.id===id),c=calc(r),due=c.sch.filter(x=>x.status==='долг').length;
+ openDlg(`<h2>Отметить оплаченные недели</h2><div class="muted">Неоплаченных недель со сроком на сегодня: ${due} (${rub(c.debt)})</div><label>Сколько следующих неоплаченных недель отметить</label><input id="mN" type="number" min="1" value="${Math.max(1,due)}">
+ <label>Способ</label><select id="mM">${['перенос',...METHODS].map(m=>`<option>${m}</option>`).join('')}</select><div class="muted">Каждая неделя записывается платежом на дату её начисления.</div>`,
+ v=>{unpaidWeeks(r,Math.floor(+v('mN'))).forEach(x=>r.payments.push({id:uid(),date:x.due,amount:x.amount,method:v('mM'),note:'отметка недель'}));r.payments.sort((a,b)=>a.date.localeCompare(b.date));checkBuyout(r)},
+ v=>+v('mN')>=1?'':'Укажите число недель')}
+function editRentalDlg(id){const r=db.rentals.find(x=>x.id===id);
+ openDlg(`<h2>Изменить аренду</h2><div class="row"><div><label>Дата начала</label><input id="nS" type="date" value="${r.start}" oninput="rinfo()" onchange="rinfo()"></div><div><label>Ставка в неделю, ₽</label><input id="nW" type="number" min="1" value="${r.weekly}" oninput="rinfo()"></div></div>
+ <input type="checkbox" id="nBuy" hidden ${r.buyout?'checked':''}><div ${r.buyout?'':'hidden'} class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="${r.buyoutPrice}" oninput="rinfo()"></div><div><label>Недель</label><input id="nWk" type="number" value="${r.weeks}" oninput="rinfo()"></div></div>
+ <label>Залог, ₽</label><input id="nD" type="number" value="${r.deposit}"><div class="card" style="background:#eef6f1;margin:8px 0" id="nInfo"></div><div class="muted">Долг и график пересчитаются по новой дате; платежи сохраняются.</div>`,
+ v=>{Object.assign(r,{start:v('nS'),weekly:+v('nW'),deposit:+v('nD')||0});if(r.buyout){r.buyoutPrice=+v('nP');r.weeks=+v('nWk');checkBuyout(r)}},rentErr);rinfo()}
 function closeDlg(id){const r=db.rentals.find(x=>x.id===id),b=bike(r.bikeId),c=calc(r);
  openDlg(`<h2>Завершить аренду</h2>${c.debt?`<p class="debt">Внимание: долг ${rub(c.debt)} (+ пеня ${rub(c.penalty)})</p>`:''}<label>Дата возврата</label><input id="cE" type="date" value="${today()}"><label>Пробег при возврате, км</label><input id="cKm" type="number" value="${b.mileage}">
  <label>Статус велосипеда</label><select id="cS"><option value="free">свободен</option><option value="repair">ремонт</option></select>`,
@@ -211,7 +241,7 @@ function clientDlg(id){const c=db.clients.find(x=>x.id===id)||{name:'',phone:'',
  ${bikeSection(true)}<div id="rentWrap"><label><input type="checkbox" id="nRent" style="width:auto" checked onchange="document.getElementById('rentBox').style.display=this.checked?'block':'none'"> Сразу оформить аренду</label><div id="rentBox">${rentFields()}</div></div>`,
   v=>{const c={id:uid(),name:v('cN').trim(),phone:v('cP'),passport:v('cD'),photos:PH.list};const b=takeBike(v);db.clients.push(c);
    if(b&&document.getElementById('nRent').checked){const r=makeRental(b,c.id,v);tab='rentals';cur=r.id}},
-  v=>!v('cN').trim()?'Введите ФИО':bkm()==='none'?'':bikeErr(v)||(document.getElementById('nRent').checked?rentErr(v):''));withPhotos();bkMode();
+  v=>!v('cN').trim()?'Введите ФИО':bkm()==='none'?'':bikeErr(v)||(document.getElementById('nRent').checked?rentErr(v):''));withPhotos();bkMode();rinfo();
   const rw=()=>{document.getElementById('rentBox').style.display=document.getElementById('nRent').checked&&bkm()!=='none'?'block':'none'};document.getElementById('bkMode').addEventListener('change',rw);rw();return}
  openDlg(`<h2>Арендатор</h2><label>ФИО</label><input id="cN" required value="${esc(c.name)}"><label>Телефон</label><input id="cP" type="tel" value="${esc(c.phone)}"><label>Паспорт / заметки</label><textarea id="cD">${esc(c.passport)}</textarea>${photoField(c.photos,'Фото (паспорт, документы)')}`,
  v=>{Object.assign(c,{name:v('cN'),phone:v('cP'),passport:v('cD'),photos:PH.list});delete c.demo;if(!id){c.id=uid();db.clients.push(c)}});withPhotos()}

@@ -289,9 +289,10 @@ function markWeeksDlg(id){const r=db.rentals.find(x=>x.id===id),c=calc(r),due=c.
 function editRentalDlg(id){const r=db.rentals.find(x=>x.id===id);
  openDlg(`<h2>Изменить аренду</h2><div class="row"><div><label>Дата начала</label><input id="nS" type="date" value="${r.start}" oninput="rinfo()" onchange="rinfo()"></div></div>
  ${partsEditor(r.parts)}
- <input type="checkbox" id="nBuy" hidden ${r.buyout?'checked':''}><div ${r.buyout?'':'hidden'} class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="${r.buyoutPrice}" oninput="bcalc();rinfo()"></div></div><div class="muted" id="nHint"></div>
+ <label><input type="checkbox" id="nBuy" style="width:auto" ${r.buyout?'checked':''} onchange="document.getElementById('nBuyBox').style.display=this.checked?'block':'none';bcalc();rinfo()"> С выкупом</label>
+ <div id="nBuyBox" style="display:${r.buyout?'block':'none'}"><div class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="${r.buyoutPrice||''}" oninput="bcalc();rinfo()"></div></div><div class="muted" id="nHint"></div><div class="muted">Для выкупа укажите число недель в позиции.</div></div>
  <label>Залог, ₽</label><input id="nD" type="number" value="${r.deposit}"><div class="card" style="background:#eef6f1;margin:8px 0" id="nInfo"></div><div class="muted">Долг и график пересчитаются по новой дате; платежи сохраняются.</div>`,
- v=>{Object.assign(r,{start:v('nS'),parts:readParts(),deposit:+v('nD')||0});if(r.buyout)r.buyoutPrice=+v('nP');normRental(r);if(r.buyout)checkBuyout(r)},rentErr);rinfo();bcalc()}
+ v=>{const buy=document.getElementById('nBuy').checked;Object.assign(r,{start:v('nS'),parts:readParts(),deposit:+v('nD')||0,buyout:buy,buyoutPrice:buy?+v('nP'):0});if(!buy)r.parts.forEach(p=>p.weeks=null);normRental(r);const b=db.bikes.find(x=>x.id===r.bikeId);if(b&&!r.end)b.status=buy?'buyout':'rent';if(buy)checkBuyout(r)},rentErr);rinfo();bcalc()}
 function closeDlg(id){const r=db.rentals.find(x=>x.id===id),b=bike(r.bikeId),c=calc(r);
  openDlg(`<h2>Завершить аренду</h2>${c.debt?`<p class="debt">Внимание: долг ${rub(c.debt)} (+ пеня ${rub(c.penalty)})</p>`:''}<label>Дата возврата</label><input id="cE" type="date" value="${today()}"><label>Пробег при возврате, км</label><input id="cKm" type="number" value="${b.mileage}">
  <label>Статус велосипеда</label><select id="cS"><option value="free">свободен</option><option value="repair">ремонт</option></select>`,

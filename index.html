@@ -313,7 +313,7 @@ function mergeData(d){const st={nb:0,nc:0,nr:0,skip:0,notes:[]};
   db.bikes.push(b);if(vin)vinMap.set(vin,b);st.nb++});
  const findC=x=>{const ph=normPhone(x.phone),n=str(x.fio||x.name).toLowerCase();return db.clients.find(c=>(ph&&normPhone(c.phone)===ph)||(n&&str(c.name).toLowerCase()===n))};
  (d.tenants||[]).forEach(x=>{if(!str(x.fio||x.name)&&!str(x.phone))return;if(findC(x)){st.skip++;return}
-  db.clients.push({id:uid(),name:str(x.fio||x.name),phone:str(x.phone),passport:[str(x.passport),str(x.notes)].filter(Boolean).join('\n'),photos:[]});st.nc++});
+  const pids=(Array.isArray(x.photos)?x.photos:[]).filter(u=>typeof u==='string'&&u.startsWith('data:image')).map(u=>{const id='ph_'+uid();putPhoto(id,u);return id});db.clients.push({id:uid(),name:str(x.fio||x.name),phone:str(x.phone),passport:[str(x.passport),str(x.notes)].filter(Boolean).join('\n'),photos:pids});st.nc++});
  (d.rentals||[]).forEach((x,i)=>{const b=vinMap.get(str(x.bikeVin).toUpperCase()),c=findC({fio:x.tenantFio,phone:x.tenantPhone});
   if(!b||!c){st.skip++;st.notes.push(`аренда #${i+1}: не найден ${!b?'велосипед '+str(x.bikeVin):'арендатор '+str(x.tenantFio)}`);return}
   if(db.rentals.some(r=>!r.end&&r.bikeId===b.id)||!['free','repair'].includes(b.status)){st.skip++;st.notes.push(`аренда #${i+1}: велосипед ${b.vin} уже в аренде`);return}

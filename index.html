@@ -61,6 +61,15 @@ details.sec>summary h2{display:inline}details.sec>summary::after{content:' ▸';
 .brow>summary{display:grid;grid-template-columns:auto 1fr auto;gap:2px 8px;align-items:center;padding:5px 0;font-size:.8rem}
 .brow small{display:block;color:#778;font-size:.72rem;word-break:break-all}.bm{min-width:0}.bs{text-align:right}.bs small{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .brow[open]>summary{background:#f6f8fb}.brow .det{padding-bottom:6px}
+
+.seg{display:inline-flex;border:1px solid #1f6f4a;border-radius:8px;overflow:hidden;margin:2px 0 6px}.seg button{border:0;background:#fff;color:#1f6f4a;padding:8px 22px;font-size:.95rem;cursor:pointer;min-height:36px}.seg button+button{border-left:1px solid #1f6f4a}.seg button.on{background:#1f6f4a;color:#fff;font-weight:600}
+
+.tap{cursor:pointer;position:relative;transition:transform .08s,filter .08s;-webkit-tap-highlight-color:transparent}.tap:active{transform:scale(.97);filter:brightness(.93)}.tap::after{content:'›';position:absolute;right:8px;top:4px;color:#9ab}
+
+.odlist{display:flex;flex-direction:column}.odrow{border-bottom:1px solid #f1dcda}.odrow:last-child{border:0}
+.odrow>summary{display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:.8rem;white-space:nowrap}
+.odn{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:600}.odb{flex:0 1 auto;max-width:30%;overflow:hidden;text-overflow:ellipsis;color:#667}.odd{flex:none}
+.odrow[open]>summary{background:#fff4f3}.odrow .det{font-size:.84rem;padding-bottom:6px}
 </style>
 <script>
 const KEY='ebikeRental.v2';
@@ -71,9 +80,9 @@ const METHODS=['Наличные','Перевод','Карта','СБП'];
 let tab='dash',cur=null;
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let MASK=localStorage.getItem('ebikeMask')==='1';
+let MASK=true; /* при каждом запуске суммы скрыты; 👁 показывает до следующего открытия */
 const rub=n=>MASK?'*** ₽':Math.round(+n||0).toLocaleString('ru-RU')+' ₽';
-function toggleMask(){MASK=!MASK;localStorage.setItem('ebikeMask',MASK?'1':'0');updEye();render()}
+function toggleMask(){MASK=!MASK;updEye();render()}
 function updEye(){const e=document.getElementById('eye');e.textContent=MASK?'🙈':'👁';e.setAttribute('aria-pressed',MASK)}
 /* ===== Фото: IndexedDB (id -> dataURL JPEG), в объектах хранится массив id ===== */
 const PHOTOS=new Map();let idb;
@@ -185,15 +194,20 @@ V.dash=()=>{const cnt={};Object.keys(ST).forEach(k=>cnt[k]=db.bikes.filter(b=>b.
   if(!r.end){const c=calc(r);debt+=c.debt;pen+=c.penalty}});
  const A=active(),tR=new Set(A.filter(r=>!r.buyout).map(r=>r.clientId)),tB=new Set(A.filter(r=>r.buyout).map(r=>r.clientId)),tAll=new Set(A.map(r=>r.clientId));
  const wk=A.reduce((a,r)=>a+curWeekly(r),0),mo=monthPlan();
- return `<div class="card"><h2>Парк: ${db.bikes.length} велосипедов</h2><div class="stats">${Object.entries(ST).filter(([k])=>k!=='repair').map(([k,v])=>`<div><span class="badge ${ST_CLS[k]}">${v}</span><div class="big">${cnt[k]}</div></div>`).join('')}
- <div id="tileTen"><span class="badge free" style="background:#e4ecff;color:#2741a0">арендаторы</span><div class="big" id="actT">${tAll.size}</div><div class="muted" id="actBreak">аренда ${tR.size} / выкуп ${tB.size}</div></div>
+ return `<div class="card"><h2>Парк: ${db.bikes.length} велосипедов</h2><div class="stats">${Object.entries(ST).filter(([k])=>k!=='repair').map(([k,v])=>`<div class="tap" id="tile_${k}" role="button" tabindex="0" onclick="BF={q:'',status:'${k}'};go('bikes')"><span class="badge ${ST_CLS[k]}">${v}</span><div class="big">${cnt[k]}</div></div>`).join('')}
+ <div id="tileTen" class="tap" role="button" tabindex="0" onclick="BF.q='';go('clients')"><span class="badge free" style="background:#e4ecff;color:#2741a0">арендаторы</span><div class="big" id="actT">${tAll.size}</div><div class="muted" id="actBreak">аренда ${tR.size} / выкуп ${tB.size}</div></div>
  <div id="tileInc"><span class="badge rent" id="moLbl">Доход ${MON_IN[+today().slice(5,7)-1]} (по графику)</span><div class="big" id="moInc">${rub(mo)}</div><div class="muted">в неделю: <span id="wkInc">${rub(wk)}</span> · ${A.length} активных</div></div></div></div>
  <div class="card"><h2>Деньги</h2><div class="stats"><div><div class="muted">Ожидается на этой неделе</div><div class="big" id="expW">${rub(exp)}</div></div><div><div class="muted">Собрано за неделю</div><div class="big" id="colW">${rub(colW)}</div></div>
  <div><div class="muted">Собрано за месяц</div><div class="big" id="colM">${rub(colM)}</div></div><div><div class="muted">Доход за всё время</div><div class="big" id="incAll">${rub(db.rentals.reduce((a,r)=>a+paidSum(r),0))}</div></div><div><div class="muted">Общий долг</div><div class="big debt" id="totDebt">${rub(debt)}</div>${pen?`<div class="muted">+ пени ${rub(pen)}</div>`:''}</div></div></div>
+ <div class="card" id="dashOd"><h2>Просрочки (${odList().length})</h2>${odRows(odList())}</div>
  <button class="btn" onclick="rentalDlg()">+ Новая аренда</button><button class="btn sec" onclick="go('overdue')">Просрочки</button>`};
-V.overdue=()=>{const L=active().map(r=>({r,c:calc(r)})).filter(x=>x.c.debt>0).sort((a,b)=>b.c.totalDebt-a.c.totalDebt);
- return `<div class="card"><h2>Просрочки (${L.length})</h2><p class="muted">Пеня: ${rub(db.settings.penaltyPerDay)} / день (меняется во вкладке «Данные»)</p><div class="tw"><table><tr><th>Арендатор</th><th>Телефон</th><th>Велосипед</th><th>Дней</th><th>Долг</th><th>Пеня</th><th>Итого</th><th></th></tr>
- ${L.map(({r,c})=>`<tr class="od"><td>${esc(client(r.clientId).name)}</td><td><a href="tel:${esc(client(r.clientId).phone)}">${esc(client(r.clientId).phone)}</a></td><td>${esc(bike(r.bikeId).num)}</td><td class="debt">${c.odDays}</td><td class="debt">${rub(c.debt)}</td><td>${rub(c.penalty)}</td><td class="debt">${rub(c.totalDebt)}</td><td><button class="btn sm" onclick="go('rentals','${r.id}')">Открыть</button></td></tr>`).join('')||'<tr><td colspan="8" class="muted">Просрочек нет 🎉</td></tr>'}</table></div></div>`};
+const odList=()=>active().map(r=>({r,c:calc(r)})).filter(x=>x.c.debt>0).sort((a,b)=>b.c.totalDebt-a.c.totalDebt);
+/* компактный список просрочек: одна строка — арендатор · велосипед · долг; тап раскрывает детали */
+const odRows=L=>`<div class="odlist">${L.map(({r,c})=>{const cl=client(r.clientId),bk=bike(r.bikeId);return `<details class="odrow" data-id="od_${r.id}"><summary><span class="odn">${esc(cl.name)}</span><span class="odb">${esc(bk.num)}</span><span class="debt odd">${rub(c.totalDebt)}</span></summary>
+ <div class="det"><div><a href="tel:${esc(cl.phone)}">${esc(cl.phone)||'—'}</a> · ${esc(bname(bk))}</div><div>Просрочка: <b class="debt">${c.odDays} дн.</b> · долг ${rub(c.debt)}${c.penalty?' + пеня '+rub(c.penalty):''}</div>
+ ${c.nextDue?`<div class="muted">След. платёж: ${fd(c.nextDue.due)} · ${rub(c.nextDue.amount-c.nextDue.paid)}</div>`:''}
+ <button class="btn sm" onclick="payDlg('${r.id}')">+ Платёж</button><button class="btn sm sec" onclick="go('rentals','${r.id}')">Открыть</button>${cl.phone?`<a class="btn sm sec" style="text-decoration:none" href="tel:${esc(cl.phone)}">Позвонить</a>`:''}</div></details>`}).join('')||'<div class="muted" style="padding:6px 0">Просрочек нет 🎉</div>'}</div>`;
+V.overdue=()=>{const L=odList();return `<div class="card"><h2>Просрочки (${L.length})</h2><p class="muted">Пеня: ${rub(db.settings.penaltyPerDay)} / день (меняется во вкладке «Данные»)</p>${odRows(L)}</div>`};
 let RF='active';
 /* сквозная нумерация по дате старта (порядок договоров): №1 — самая ранняя; при равной дате — порядок создания */
 const rentOrder=()=>db.rentals.map((r,i)=>[r,i]).sort((a,b)=>a[0].start.localeCompare(b[0].start)||a[1]-b[1]).map(x=>x[0]);
@@ -238,9 +252,9 @@ const bkm=()=>(document.querySelector('input[name=bkm]:checked')||{}).value||'no
 function bkMode(){const m=bkm(),g=id=>document.getElementById(id);g('bkPick').style.display=m==='pick'?'block':'none';g('bkNew').style.display=m==='new'?'block':'none';const r=g('rentBox');if(r)r.style.display=m==='none'?'none':'block';const w=g('rentWrap');if(w)w.style.display=m==='none'?'none':'block'}
 function bkFilter(){const q=document.getElementById('nBq').value.toLowerCase().trim(),s=document.getElementById('nB');let first=null;[...s.options].forEach(o=>{const ok=!q||o.dataset.q.includes(q);o.hidden=!ok;if(ok&&!first)first=o});if(first&&s.selectedOptions[0]&&s.selectedOptions[0].hidden)s.value=first.value}
 const rentFields=()=>`<div class="row"><div><label>Дата начала</label><input id="nS" type="date" value="${today()}" oninput="rinfo()" onchange="rinfo()"></div></div>
+ ${typeSeg(false)}
  ${partsEditor([{name:'Велосипед',weekly:db.settings.defaultWeekly,weeks:null}])}
- <label><input type="checkbox" id="nBuy" style="width:auto" onchange="document.getElementById('nBuyBox').style.display=this.checked?'block':'none';if(this.checked&&!document.getElementById('nWk').value)document.getElementById('nWk').value=20;bcalc();rinfo()"> С выкупом</label>
- <div id="nBuyBox" style="display:none"><div class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="70000" oninput="bcalc();rinfo()"></div></div><div class="muted" id="nHint"></div></div>
+ <div id="nBuyBox" style="display:none"><div class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" placeholder="= сумма по позициям" oninput="this.dataset.auto='';bcalc();rinfo()"></div></div><div class="muted" id="nHint"></div></div>
  <div class="card" style="background:#eef6f1;margin:8px 0" id="nInfo"></div>
  <div class="row"><div><label>Уже оплачено недель</label><input id="nPaidW" type="number" min="0" value="1" oninput="this.dataset.t=1;document.getElementById('nPaidSum').value=''">
  <button type="button" class="btn sm sec" onclick="setPaidW('all')">все оплачены</button><button type="button" class="btn sm sec" onclick="setPaidW(0)">0</button></div>
@@ -278,9 +292,16 @@ function rentalDlg(){
  v=>{const nc=v('nC')==='_new';let cid=v('nC');const b=takeBike(v);if(nc){const c={id:uid(),name:v('ncN').trim(),phone:v('ncP'),passport:v('ncD'),photos:[]};db.clients.push(c);cid=c.id}
   const r=makeRental(b,cid,v);tab='rentals';cur=r.id},
  v=>bikeErr(v)||(v('nC')==='_new'&&!v('ncN').trim()?'Введите ФИО':'')||rentErr(v));withPhotos();bkMode();rinfo()}
-function bcalc(src){const g=id=>document.getElementById(id);if(!g('parts')||!g('nBuy'))return;
+/* тип: сегмент «Аренда | Выкуп», скрытый чекбокс #nBuy синхронизирован */
+const typeSeg=buy=>`<input type="checkbox" id="nBuy" hidden ${buy?'checked':''}><label>Тип</label><div class="seg" id="tSeg"><button type="button" id="tRent" class="${buy?'':'on'}" aria-pressed="${!buy}" onclick="setType(false)">Аренда</button><button type="button" id="tBuy" class="${buy?'on':''}" aria-pressed="${buy}" onclick="setType(true)">Выкуп</button></div>`;
+function setType(buy){const g=id=>document.getElementById(id);g('nBuy').checked=buy;g('tRent').classList.toggle('on',!buy);g('tBuy').classList.toggle('on',buy);g('tRent').setAttribute('aria-pressed',!buy);g('tBuy').setAttribute('aria-pressed',buy);
+ g('nBuyBox').style.display=buy?'block':'none';document.querySelectorAll('#parts .pwk').forEach(e=>{if(!buy)e.value='';e.closest('div').style.display=''});
+ if(buy){const w=g('nWk');if(w&&!w.value)w.focus()}bcalc();rinfo()}
+/* цена выкупа: если пусто (или заполнена автоматически) = сумма начислений по позициям */
+function autoPrice(){const g=id=>document.getElementById(id),P=g('nP');if(!P||!g('nBuy').checked)return;if(P.value===''||P.dataset.auto){const r=normRental({start:today(),parts:readParts()}),N=maxWeeks(r);let t=0;for(let k=0;k<N;k++)t+=weekAmt(r,k);P.value=t||'';P.dataset.auto=t?'1':''}}
+function bcalc(src){const g=id=>document.getElementById(id);if(!g('parts')||!g('nBuy'))return;autoPrice();
  const buy=g('nBuy').checked,P=+(g('nP')||{}).value||0,W=+g('nWk').value;
- if(buy&&src==='w'&&W>0&&readParts().length===1&&g('nBuyBox'))g('nW').value=Math.ceil(P/W);
+ if(buy&&src==='w'&&W>0&&P>0&&!g('nP').dataset.auto&&readParts().length===1&&!g('h2edit'))g('nW').value=Math.ceil(P/W);
  const r=normRental({start:today(),parts:readParts()}),N=maxWeeks(r);let tot=0;for(let k=0;k<N;k++)tot+=weekAmt(r,k);
  if(g('pSum'))g('pSum').textContent=`Итого в неделю: ${rub(weekAmt(r,0))}`+(N?` · за ${N} нед по позициям: ${rub(tot)}`:'');
  if(!buy||!g('nHint'))return;g('nHint').textContent=`${N} нед, по позициям ${rub(tot)} (выкуп ${rub(P)}; последний платёж — остаток)`;
@@ -298,12 +319,12 @@ function markWeeksDlg(id){const r=db.rentals.find(x=>x.id===id),c=calc(r),due=c.
  v=>{unpaidWeeks(r,Math.floor(+v('mN'))).forEach(x=>r.payments.push({id:uid(),date:x.due,amount:x.amount,method:v('mM'),note:'отметка недель'}));r.payments.sort((a,b)=>a.date.localeCompare(b.date));checkBuyout(r)},
  v=>+v('mN')>=1?'':'Укажите число недель')}
 function editRentalDlg(id){const r=db.rentals.find(x=>x.id===id);
- openDlg(`<h2>Изменить аренду</h2><div class="row"><div><label>Дата начала</label><input id="nS" type="date" value="${r.start}" oninput="rinfo()" onchange="rinfo()"></div></div>
+ openDlg(`<h2 id="h2edit">Изменить аренду</h2><div class="row"><div><label>Дата начала</label><input id="nS" type="date" value="${r.start}" oninput="rinfo()" onchange="rinfo()"></div></div>
+ ${typeSeg(r.buyout)}
  ${partsEditor(r.parts)}
- <label><input type="checkbox" id="nBuy" style="width:auto" ${r.buyout?'checked':''} onchange="document.getElementById('nBuyBox').style.display=this.checked?'block':'none';bcalc();rinfo()"> С выкупом</label>
- <div id="nBuyBox" style="display:${r.buyout?'block':'none'}"><div class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="${r.buyoutPrice||''}" oninput="bcalc();rinfo()"></div></div><div class="muted" id="nHint"></div><div class="muted">Для выкупа укажите число недель в позиции.</div></div>
+ <div id="nBuyBox" style="display:${r.buyout?'block':'none'}"><div class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="${r.buyout&&r.buyoutPrice||''}" placeholder="= сумма по позициям" oninput="this.dataset.auto='';bcalc();rinfo()"></div></div><div class="muted" id="nHint"></div><div class="muted">Для выкупа укажите число недель в позиции.</div></div>
  <label>Залог, ₽</label><input id="nD" type="number" value="${r.deposit}"><div class="card" style="background:#eef6f1;margin:8px 0" id="nInfo"></div><div class="muted">Долг и график пересчитаются по новой дате; платежи сохраняются.</div>`,
- v=>{const buy=document.getElementById('nBuy').checked;Object.assign(r,{start:v('nS'),parts:readParts(),deposit:+v('nD')||0,buyout:buy,buyoutPrice:buy?+v('nP'):0});if(!buy)r.parts.forEach(p=>p.weeks=null);normRental(r);const b=db.bikes.find(x=>x.id===r.bikeId);if(b&&!r.end)b.status=buy?'buyout':'rent';if(buy)checkBuyout(r)},rentErr);rinfo();bcalc()}
+ v=>{const buy=document.getElementById('nBuy').checked;Object.assign(r,{start:v('nS'),parts:readParts(),deposit:+v('nD')||0,buyout:buy,buyoutPrice:buy?+v('nP'):0});normRental(r);const b=db.bikes.find(x=>x.id===r.bikeId);if(b&&!r.end)b.status=buy?'buyout':'rent';if(buy)checkBuyout(r)},rentErr);rinfo();bcalc()}
 function closeDlg(id){const r=db.rentals.find(x=>x.id===id),b=bike(r.bikeId),c=calc(r);
  openDlg(`<h2>Завершить аренду</h2>${c.debt?`<p class="debt">Внимание: долг ${rub(c.debt)} (+ пеня ${rub(c.penalty)})</p>`:''}<label>Дата возврата</label><input id="cE" type="date" value="${today()}"><label>Пробег при возврате, км</label><input id="cKm" type="number" value="${b.mileage}">
  <label>Статус велосипеда</label><select id="cS"><option value="free">свободен</option><option value="repair">ремонт</option></select>`,

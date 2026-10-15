@@ -67,7 +67,7 @@ let tab='dash',cur=null;
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let MASK=localStorage.getItem('ebikeMask')==='1';
-const rub=n=>MASK?'*** ₽':(Math.round((n||0)*100)/100).toLocaleString('ru-RU')+' ₽';
+const rub=n=>MASK?'*** ₽':Math.round(+n||0).toLocaleString('ru-RU')+' ₽';
 function toggleMask(){MASK=!MASK;localStorage.setItem('ebikeMask',MASK?'1':'0');updEye();render()}
 function updEye(){const e=document.getElementById('eye');e.textContent=MASK?'🙈':'👁';e.setAttribute('aria-pressed',MASK)}
 /* ===== Фото: IndexedDB (id -> dataURL JPEG), в объектах хранится массив id ===== */
@@ -169,16 +169,20 @@ function labelTables(){document.querySelectorAll('#app .tw table').forEach(t=>{c
 const clamp=(t,id)=>{t=String(t||'');if(!t)return '';const long=t.length>70||t.includes('\n');return `<div class="clamp" ${id?`id="${id}"`:''} onclick="event.stopPropagation();this.classList.toggle('open')">${esc(t)}</div>${long?`<button type="button" class="more" onclick="event.stopPropagation();this.previousElementSibling.classList.toggle('open');this.textContent=this.previousElementSibling.classList.contains('open')?'свернуть':'ещё…'">ещё…</button>`:''}`};
 function go(t,id){tab=t;cur=id||null;render();scrollTo(0,0)}
 const V={};
+const MON_IN=['в январе','в феврале','в марте','в апреле','в мае','в июне','в июле','в августе','в сентябре','в октябре','в ноябре','в декабре'];
+/* точный план на текущий календарный месяц: начисления активных аренд (как в «Графике»), срок которых попадает в этот месяц */
+function monthPlan(){const t=today(),m0=dnum(t.slice(0,7)+'-01'),d=new Date(m0*DAY);const m1=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1)/DAY-1;
+ return active().reduce((a,r)=>a+schedule(r,dstr(m1)).filter(x=>{const n=dnum(x.due);return n>=m0&&n<=m1}).reduce((s,x)=>s+x.amount,0),0)}
 V.dash=()=>{const cnt={};Object.keys(ST).forEach(k=>cnt[k]=db.bikes.filter(b=>b.status===k).length);
  const [w0,w1]=weekBounds();const m=today().slice(0,7);let exp=0,colW=0,colM=0,debt=0,pen=0;
  db.rentals.forEach(r=>{if(!r.end)schedule(r).forEach(x=>{const d=dnum(x.due);if(d>=w0&&d<=w1)exp+=x.amount});
   r.payments.forEach(p=>{const d=dnum(p.date);if(d>=w0&&d<=w1)colW+=+p.amount;if(p.date.slice(0,7)===m)colM+=+p.amount});
   if(!r.end){const c=calc(r);debt+=c.debt;pen+=c.penalty}});
  const A=active(),tR=new Set(A.filter(r=>!r.buyout).map(r=>r.clientId)),tB=new Set(A.filter(r=>r.buyout).map(r=>r.clientId)),tAll=new Set(A.map(r=>r.clientId));
- const wk=A.reduce((a,r)=>a+curWeekly(r),0);
+ const wk=A.reduce((a,r)=>a+curWeekly(r),0),mo=monthPlan();
  return `<div class="card"><h2>Парк: ${db.bikes.length} велосипедов</h2><div class="stats">${Object.entries(ST).filter(([k])=>k!=='repair').map(([k,v])=>`<div><span class="badge ${ST_CLS[k]}">${v}</span><div class="big">${cnt[k]}</div></div>`).join('')}
  <div id="tileTen"><span class="badge free" style="background:#e4ecff;color:#2741a0">арендаторы</span><div class="big" id="actT">${tAll.size}</div><div class="muted" id="actBreak">аренда ${tR.size} / выкуп ${tB.size}</div></div>
- <div id="tileInc"><span class="badge rent">Доход в месяц (текущие)</span><div class="big" id="moInc">${rub(wk*52/12)}</div><div class="muted">в неделю: <span id="wkInc">${rub(wk)}</span> · ${A.length} активных</div></div></div></div>
+ <div id="tileInc"><span class="badge rent" id="moLbl">Доход ${MON_IN[+today().slice(5,7)-1]} (по графику)</span><div class="big" id="moInc">${rub(mo)}</div><div class="muted">в неделю: <span id="wkInc">${rub(wk)}</span> · ${A.length} активных</div></div></div></div>
  <div class="card"><h2>Деньги</h2><div class="stats"><div><div class="muted">Ожидается на этой неделе</div><div class="big" id="expW">${rub(exp)}</div></div><div><div class="muted">Собрано за неделю</div><div class="big" id="colW">${rub(colW)}</div></div>
  <div><div class="muted">Собрано за месяц</div><div class="big" id="colM">${rub(colM)}</div></div><div><div class="muted">Доход за всё время</div><div class="big" id="incAll">${rub(db.rentals.reduce((a,r)=>a+paidSum(r),0))}</div></div><div><div class="muted">Общий долг</div><div class="big debt" id="totDebt">${rub(debt)}</div>${pen?`<div class="muted">+ пени ${rub(pen)}</div>`:''}</div></div></div>
  <button class="btn" onclick="rentalDlg()">+ Новая аренда</button><button class="btn sec" onclick="go('overdue')">Просрочки</button>`};

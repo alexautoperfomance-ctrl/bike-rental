@@ -69,15 +69,15 @@ function withPhotos(owner){const prev=dlg.onclose;dlg.onclose=()=>{if(dlg.return
 const DAY=86400000;const dnum=s=>Date.parse(s+'T00:00:00Z')/DAY;const dstr=n=>new Date(n*DAY).toISOString().slice(0,10);
 let TODAY_OVERRIDE=null;const today=()=>TODAY_OVERRIDE||(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
 const fd=s=>s?s.split('-').reverse().join('.'):'—';
-function seed(){const colors=['чёрный','белый','красный','синий','серый','зелёный','жёлтый'],models=['Kugoo V1','Monster 60V','Wenbox U2','Eltreco XT-850','Minako F10'];
- const bikes=[];for(let i=1;i<=50;i++){bikes.push({id:uid()+i,num:'№'+String(i).padStart(2,'0'),model:models[i%5],vin:'EB'+(2023+i%3)+String(100000+i*7919%900000).padStart(6,'0'),color:colors[i%7],year:2023+i%3,tracker:'TRK-'+String(860000+(i*4271)%99999).padStart(6,'0'),photos:[],power:[250,350,500,750,1000][i%5],mileage:(i*137)%3000,status:i%17===0?'repair':'free',demo:true})}
- return {settings:{penaltyPerDay:100,defaultWeekly:3500},bikes,clients:[{id:uid(),name:'Иванов Иван Иванович',phone:'+7 900 000-00-00',passport:'Паспорт 0000 000000 (демо)',demo:true}],rentals:[]}}
-let db;try{db=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!db||!db.bikes)db=seed();db.settings=db.settings||{penaltyPerDay:0,defaultWeekly:3500};
+let db;try{db=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!db||!db.bikes)db={settings:{penaltyPerDay:0,defaultWeekly:3500},bikes:[],clients:[],rentals:[]};db.settings=db.settings||{penaltyPerDay:0,defaultWeekly:3500};
 const save=()=>localStorage.setItem(KEY,JSON.stringify(db));save();
 const bike=id=>db.bikes.find(x=>x.id===id)||{num:'(удалён)',vin:''};const client=id=>db.clients.find(x=>x.id===id)||{name:'(удалён)',phone:''};
 const bname=b=>b.num+' '+[b.brand,b.model].filter(Boolean).join(' ')+' · '+b.vin;
 /* миграция старых данных */
-db.bikes.forEach((b,i)=>{if(b.tracker===undefined)b.tracker=b.demo?'TRK-'+String(860000+((i+1)*4271)%99999).padStart(6,'0'):'';if(!b.photos)b.photos=[];for(const k of ['brand','battery1','battery2'])if(b[k]===undefined)b[k]=''});db.clients.forEach(c=>{if(!c.photos)c.photos=[]});save();
+/* однократно: удалить демо-данные (флаг demo), записи пользователя не трогаем */
+if(!db.settings.demoPurged){const ib=new Set(db.bikes.filter(b=>b.demo).map(b=>b.id)),ic=new Set(db.clients.filter(c=>c.demo).map(c=>c.id));
+ db.rentals=db.rentals.filter(r=>!ib.has(r.bikeId)&&!ic.has(r.clientId));db.bikes=db.bikes.filter(b=>!ib.has(b.id));db.clients=db.clients.filter(c=>!ic.has(c.id));db.settings.demoPurged=true;save()}
+db.bikes.forEach(b=>{if(b.tracker===undefined)b.tracker='';if(!b.photos)b.photos=[];for(const k of ['brand','battery1','battery2'])if(b[k]===undefined)b[k]=''});db.clients.forEach(c=>{if(!c.photos)c.photos=[]});save();
 
 /* ===== Расчёты =====
  Платёж за неделю вносится авансом: даты начислений = старт + 7·k (k=0,1,2…).
@@ -258,7 +258,7 @@ V.data=()=>`<div class="card"><h2>Настройки</h2><div class="row"><div><
  <div class="card"><h2>Экспорт CSV</h2><button class="btn" onclick="exportCSV('bikes')">Велосипеды</button><button class="btn" onclick="exportCSV('payments')">Платежи</button><button class="btn" onclick="exportCSV('debts')">Долги</button></div>
  <div class="card"><h2>Резервная копия</h2><button class="btn" onclick="backup()">Скачать JSON (с фото)</button><div class="muted">Фото в базе: ${PHOTOS.size} — файл копии может быть большим (~150–300 КБ на фото).</div><label>Восстановить из JSON</label><input type="file" accept=".json,application/json" onchange="restore(this.files[0])"></div>
  <div class="card"><h2>Добавить из файла</h2><p class="muted">Импорт JSON (формат bike-import-v1 или резервная копия) с ОБЪЕДИНЕНИЕМ: ничего не удаляется, дубли (VIN; телефон/ФИО) пропускаются.</p><button class="btn" onclick="document.getElementById('mergeIn').click()">Добавить из файла</button><input type="file" id="mergeIn" hidden accept=".json,application/json" onchange="mergeFile(this.files[0]);this.value=''"></div>
- <div class="card"><h2>Демо-данные</h2><p class="muted">Удаляет 50 демо-велосипедов, демо-арендатора и связанные аренды.</p><button class="btn red" onclick="clearDemo()">Удалить демо-данные</button><button class="btn sec" onclick="if(confirm('Стереть ВСЕ данные?')){db={settings:db.settings,bikes:[],clients:[],rentals:[]};save();gcPhotos();render()}">Стереть всё</button></div>`;
+ <div class="card"><h2>Очистка</h2><button class="btn sec" onclick="if(confirm('Стереть ВСЕ данные?')){db={settings:db.settings,bikes:[],clients:[],rentals:[]};save();gcPhotos();render()}">Стереть всё</button></div>`;
 function backup(){const ph={};PHOTOS.forEach((v,k)=>ph[k]=v);const json=JSON.stringify({...db,photoData:ph});
  const mb=json.length/1048576;if(mb>5&&!confirm('Резервная копия ≈ '+mb.toFixed(1)+' МБ из-за фото. Скачать?'))return;download('ebike-backup-'+today()+'.json',json,'application/json')}
 function restore(f){if(!f)return;f.text().then(async t=>{const d=JSON.parse(t);if(!Array.isArray(d.bikes)||!Array.isArray(d.clients)||!Array.isArray(d.rentals))throw 0;
@@ -292,8 +292,6 @@ function mergeFile(f){if(!f)return;f.text().then(t=>{const d=JSON.parse(t);const
  try{st=mergeData(d)}catch(e){db=orig;throw e}
  const msg=`Добавить из файла:\nновых велосипедов: ${st.nb}\nновых арендаторов: ${st.nc}\nаренд: ${st.nr}\nпропущено дублей/конфликтов: ${st.skip}${st.notes.length?'\n\n'+st.notes.slice(0,10).join('\n'):''}\n\nПрименить? Существующие данные не удаляются.`;
  if(confirm(msg)){save();render();alert('Импорт выполнен')}else db=orig}).catch(e=>{console.warn(e);alert('Неверный файл: '+(e.message||''))})}
-function clearDemo(){if(!confirm('Удалить демо-данные?'))return;const ib=new Set(db.bikes.filter(b=>b.demo).map(b=>b.id)),ic=new Set(db.clients.filter(c=>c.demo).map(c=>c.id));
- db.rentals=db.rentals.filter(r=>!ib.has(r.bikeId)&&!ic.has(r.clientId));db.bikes=db.bikes.filter(b=>!ib.has(b.id));db.clients=db.clients.filter(c=>!ic.has(c.id));save();gcPhotos();render()}
 updEye();render();loadPhotos().then(render);
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js');
 </script></body></html>

@@ -91,7 +91,7 @@ details.sec>summary h2{display:inline}details.sec>summary::after{content:' ▸';
 .cd.has{background:#eef6f1}.cd.today{border:2px solid #1f6f4a}.cd.sel{background:#1f6f4a;color:#fff}.cd.sel i,.cd.sel small{color:#fff}
 </style>
 <script>
-const KEY='ebikeRental.v2';const APP_VER='v23';
+const KEY='ebikeRental.v2';const APP_VER='v24';
 const TABS=[['dash','Сводка'],['overdue','Просрочки'],['rentals','Аренды'],['bikes','Велосипеды'],['clients','Арендаторы'],['docs','Договоры'],['data','Данные']];
 const ST={free:'свободен',rent:'в аренде',buyout:'выкуп',owned:'выкуплен',repair:'ремонт'};
 const ST_CLS={free:'free',rent:'rent',buyout:'buyout',owned:'owned',repair:'repair'};
@@ -645,9 +645,9 @@ async function ocrRun(inp,kind){const file=inp.files&&inp.files[0];inp.value='';
   render();ocrSt('✓ Распознано — проверьте и исправьте поля');
  }catch(e){render();ocrSt('Не удалось распознать. Сфотографируйте ровно, без бликов, при хорошем свете, или введите вручную.')}}
 /* ===== v19: предпросмотр A4 ===== */
-document.head.insertAdjacentHTML('beforeend','<style>'+DOCCSS.split('@media')[0].replace(/#doc/g,'.pv')+`#pvOv{position:fixed;inset:0;z-index:999;background:#777;overflow:auto;-webkit-overflow-scrolling:touch}#pvBar{position:sticky;top:0;z-index:2;display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:#333}#pvPages{padding:12px 0}.a4{width:794px;height:1123px;box-sizing:border-box;padding:57px 57px;margin:0 auto 14px;background:#fff;box-shadow:0 2px 8px #0006;overflow:hidden}.a4 .pv{padding:0}</style>`);
+document.head.insertAdjacentHTML('beforeend','<style>'+DOCCSS.split('@media')[0].replace(/#doc/g,'.pv')+`#pvOv{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:1000;background:#777}#pvScroll{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:calc(10px + env(safe-area-inset-top)) 0 calc(90px + env(safe-area-inset-bottom))}#pvBar{position:fixed;left:0;right:0;bottom:0;z-index:1001;display:flex;gap:8px;padding:8px calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));background:#222;box-shadow:0 -2px 8px #0008}#pvBar .btn{flex:1;min-height:48px;font-size:16px;margin:0;padding:8px 4px}#pvPages{transform-origin:0 0;width:794px}.a4{width:794px;height:1123px;box-sizing:border-box;padding:57px 57px;margin:0 auto 14px;background:#fff;box-shadow:0 2px 8px #0006;overflow:hidden}.a4 .pv{padding:0}</style>`);
 function ctPreview(){const html=ctDoc(),ov=document.createElement('div');ov.id='pvOv';ov.className='noprint';
- ov.innerHTML=`<div id="pvBar"><button class="btn sec" onclick="ctPvClose()">← Назад</button><button class="btn" onclick="ctPrint()">🖨 Печать</button><button class="btn sec" onclick="ctMail()">✉ На почту</button></div><div id="pvPages"></div>`;document.body.appendChild(ov);document.body.style.overflow='hidden';
+ ov.innerHTML=`<div id="pvScroll"><div id="pvWrap"><div id="pvPages"></div></div></div><div id="pvBar"><button class="btn sec" onclick="ctPvClose()">← Назад</button><button class="btn" onclick="ctPrint()">🖨 Печать</button><button class="btn sec" onclick="ctMail()">✉ На почту</button></div>`;document.body.appendChild(ov);document.body.style.overflow='hidden';
  const P=ov.querySelector('#pvPages'),src=document.createElement('div');src.innerHTML=html;let pg;
  const np=()=>{const a=document.createElement('div');a.className='a4';a.innerHTML='<div class="pv"></div>';P.appendChild(a);pg=a;return a.firstChild};let box=np();
  const full=()=>pg.scrollHeight>pg.clientHeight+1;
@@ -655,6 +655,6 @@ function ctPreview(){const html=ctDoc(),ov=document.createElement('div');ov.id='
   box.appendChild(el);if(full()&&box.children.length>1){if(el.tagName==='OL'||el.tagName==='TABLE'){const it=[...(el.tagName==='OL'?el.children:el.querySelectorAll('tr'))];const keep=el.cloneNode(false);if(el.tagName==='TABLE')keep.appendChild(document.createElement('tbody'));box.replaceChild(keep,el);const tgt=()=>keep.tagName==='TABLE'?keep.firstChild:keep;let cur=keep,ci=tgt(),st=el.getAttribute('start');let n=0;
     for(const li of it){ci.appendChild(li);n++;if(full()&&ci.children.length>1){ci.removeChild(li);box=np();cur=el.cloneNode(false);if(el.tagName==='OL')cur.setAttribute('start',n);if(cur.tagName==='TABLE')cur.appendChild(document.createElement('tbody'));box.appendChild(cur);ci=cur.tagName==='TABLE'?cur.firstChild:cur;ci.appendChild(li)}}}
    else{box.removeChild(el);box=np();box.appendChild(el)}}}
- const z=Math.min(1,(innerWidth-12)/794);P.style.zoom=z}
+ const z=Math.min(1,(innerWidth-12)/794),W=ov.querySelector('#pvWrap');P.style.transform=`scale(${z})`;W.style.cssText=`width:${794*z}px;height:${P.offsetHeight*z}px;margin:0 auto;overflow:hidden`}
 function ctPvClose(){const o=document.getElementById('pvOv');if(o)o.remove();document.body.style.overflow=''}
 </script></body></html>

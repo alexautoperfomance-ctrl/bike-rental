@@ -91,7 +91,7 @@ details.sec>summary h2{display:inline}details.sec>summary::after{content:' ▸';
 .cd.has{background:#eef6f1}.cd.today{border:2px solid #1f6f4a}.cd.sel{background:#1f6f4a;color:#fff}.cd.sel i,.cd.sel small{color:#fff}
 </style>
 <script>
-const KEY='ebikeRental.v2';const APP_VER='v26';
+const KEY='ebikeRental.v2';const APP_VER='v27';
 const TABS=[['dash','Сводка'],['overdue','Просрочки'],['rentals','Аренды'],['bikes','Велосипеды'],['clients','Арендаторы'],['docs','Договоры'],['data','Данные']];
 const ST={free:'свободен',rent:'в аренде',buyout:'выкуп',owned:'выкуплен',repair:'ремонт'};
 const ST_CLS={free:'free',rent:'rent',buyout:'buyout',owned:'owned',repair:'repair'};
@@ -479,7 +479,7 @@ function mergeFile(f){if(!f)return;f.text().then(t=>{const d=JSON.parse(t);const
  const msg=`Добавить из файла:\nновых велосипедов: ${st.nb}\nновых арендаторов: ${st.nc}\nаренд: ${st.nr}\nпропущено дублей/конфликтов: ${st.skip}${st.notes.length?'\n\n'+st.notes.slice(0,10).join('\n'):''}\n\nПрименить? Существующие данные не удаляются.`;
  if(confirm(msg)){save();render();alert('Импорт выполнен')}else db=orig}).catch(e=>{console.warn(e);alert('Неверный файл: '+(e.message||''))})}
 updEye();render();loadPhotos().then(render);
-if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{reg.update();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update()})}).catch(e=>console.warn('SW',e));
+if('serviceWorker' in navigator&&location.protocol!=='file:'){let rl=0;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!rl&&navigator.serviceWorker.controller){rl=1;location.reload()}})}navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{reg.update();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update()})}).catch(e=>console.warn('SW',e));
 /* ===== Договоры ===== */
 const LL_DEF={name:'Земеров Семён Михайлович',birth:'04.10.2005, место рождения: г. Новосибирск, Новосибирская обл.',passport:'серия 50 25 № 978784, выдан ГУ МВД России по Новосибирской области 24.12.2025, код подразделения 540-046',addr:'Новосибирская область, Новосибирский район, р.п. Краснообск, мкр. 2, д. 227, кв. 77',phone:'8 913 943-88-14',inn:'540362034120',org:'VOLT ONE',ogrnip:'326547600203121',rs:'40802810444750019673',bank:'СИБИРСКИЙ БАНК ПАО СБЕРБАНК',bik:'045004641',ks:'30101810500000000641',binn:'7707083893',bkpp:'540643001',uaddr:''};
 const IPF=[['org','Название (бренд)'],['ogrnip','ОГРНИП'],['rs','Расчётный счёт (р/с)'],['bank','Банк'],['bik','БИК'],['ks','Корр. счёт (к/с)'],['binn','ИНН банка'],['bkpp','КПП банка'],['uaddr','Юридический адрес']];
@@ -534,7 +534,7 @@ function ctActTpl(f){const inp=(k,l,t)=>`<div><label>${l}</label><input id="f_${
  row=(l,b)=>`<div style="display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap"><span style="flex:1 1 150px">${l}</span>${b}</div>`,lk=(f.kit||{}).lock,
  lb=(v,t)=>`<button type="button" class="btn ${lk===v?'':'sec'} actb" style="padding:4px 8px" onclick="ctSet2('kit','lock',CT.f.kit&&CT.f.kit.lock===${v}?null:${v});render()">${t}</button>`;
  return `<div class="card" id="secAct"><h2>Акт приёма-передачи</h2><div class="row">${inp('mileage','Пробег, км')}</div><h3>Техническое состояние</h3>${TACT.map(([k,l])=>row(l,tb(k,'ok','Исправно')+tb(k,'bad','Неисправно'))).join('')}${row('Внешнее состояние (пластик, общее)',tb('dmg','no','Целое')+tb('dmg','yes','Повреждено'))}<div class="row">${inp('dmgtxt','Описание повреждений')}</div>
- <h3>Комплектация</h3><div class="muted">Аккумуляторов: ${[f.bat1,f.bat2].filter(Boolean).length||'не указано'} (из полей «Аккумулятор 1/2»)</div>${row('Замок велосипедный',lb(true,'Входит')+lb(false,'Не входит'))}<div class="row">${inp('keys','Ключи, шт.','number')}${inp('keysets','Комплектов','number')}</div><div class="row">${inp('other','Другое')}</div></div>`}
+ <h3>Комплектация</h3><div class="muted">Аккумуляторов: ${[f.bat1,f.bat2].filter(Boolean).length||'не указано'} (из полей «Аккумулятор 1/2»)</div>${row('Замок велосипедный',lb(true,'Входит')+lb(false,'Не входит'))}<div class="row">${inp('keys','Ключи, шт.','number')}</div><div class="row">${inp('other','Другое')}</div></div>`}
 
 function ctFill(){const d=document.getElementById('doc');if(d)d.innerHTML=ctDoc();return d}
 const nf=n=>n===''||n==null?'________':Number(n).toLocaleString('ru-RU');
@@ -630,14 +630,14 @@ function regParse(t){const one=t.replace(/\n/g,' ').replace(/\s+/g,' ');
  if(m&&m[1].length>8)return m[1].replace(/[^А-ЯЁа-яё0-9 .,\-/№]/g,'').trim();
  const ls=t.split('\n').filter(l=>/(обл|р-н|район|г\.|ул\.|ул |д\.|дом|кв\.|пос|мкр|пр-т|край|респ|пер\.)/i.test(l));return ls.join(', ').replace(/[^А-ЯЁа-яё0-9 .,\-/№]/g,'').replace(/\s+/g,' ').trim()}
 let OCRW=null;
-function ocrLib(){return window.Tesseract?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+function ocrLib(){return window.Tesseract?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');s.src='ocr/tesseract.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
 function ocrSt(t,pct){const e=document.getElementById('ocrSt');if(e)e.innerHTML=t?`${esc(t)}${pct!=null?` <progress max="100" value="${pct}" style="width:120px;vertical-align:middle"></progress> ${pct}%`:''}`:''}
 async function ocrImg(file,rot){const img=await new Promise((ok,no)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);ok(i)};i.onerror=()=>{URL.revokeObjectURL(u);no(new Error('img'))};i.src=u});
  const k=Math.min(1,2200/Math.max(img.width,img.height)),w=Math.round(img.width*k),h=Math.round(img.height*k),c=document.createElement('canvas');
  c.width=rot?h:w;c.height=rot?w:h;const x=c.getContext('2d');if(rot){x.translate(h,0);x.rotate(Math.PI/2)}x.filter='grayscale(1) contrast(1.4)';x.drawImage(img,0,0,w,h);return c}
 async function ocrRun(inp,kind){const file=inp.files&&inp.files[0];inp.value='';if(!file)return;
  const f=CT.f;try{ocrSt('Загрузка распознавания…',0);await ocrLib();
-  if(!OCRW)OCRW=await Tesseract.createWorker(['rus','eng'],1,{logger:m=>{if(m.status==='recognizing text')ocrSt('Распознаю…',Math.round(m.progress*100));else ocrSt('Загрузка (первый раз дольше)…',Math.round((m.progress||0)*100))}});
+  if(!OCRW)OCRW=await Tesseract.createWorker(['rus','eng'],1,{...TOPT(),logger:m=>{if(m.status==='recognizing text')ocrSt('Распознаю…',Math.round(m.progress*100));else ocrSt('Загрузка (первый раз дольше)…',Math.round((m.progress||0)*100))}});
   const t1=(await OCRW.recognize(await ocrImg(file,false))).data.text;
   if(kind==='reg'){const a=regParse(t1);if(!a)throw new Error('empty');f.caddr=a}
   else{let r=passParse(t1);if(!r.ser){try{const r2=passParse((await OCRW.recognize(await ocrImg(file,true))).data.text);for(const k in r2)if(!r[k])r[k]=r2[k]}catch(e){}}
@@ -657,14 +657,16 @@ function ocrMenu(on){const m=document.getElementById('docMenu');if(m)m.style.dis
 const MRZD={O:'0',Q:'0',D:'0',I:'1',L:'1',Z:'2',S:'5',B:'8',G:'6',T:'7'};
 function mrzFix2(l){l=l.replace(/R[UV][S5]/,'RUS');const i=l.indexOf('RUS');if(i<0)return l;const d=s=>s.replace(/[A-Z]/g,c=>MRZD[c]||c);
  return d(l.slice(0,i))+'RUS'+d(l.slice(i+3,i+10))+l.slice(i+10,i+11)+d(l.slice(i+11))}
-let OCRM=null;
-async function ocrMrzWorker(){if(!OCRM){OCRM=await Tesseract.createWorker('eng',1,{logger:()=>{}});await OCRM.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<',tessedit_pageseg_mode:'6'})}return OCRM}
-async function imgOf(file){return await new Promise((ok,no)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);ok(i)};i.onerror=()=>{URL.revokeObjectURL(u);no(new Error('img'))};i.src=u})}
-function cropRot(img,rot,y0,y1,maxW){const W=img.naturalWidth,H=img.naturalHeight,rw=rot%180?H:W,rh=rot%180?W:H,c=document.createElement('canvas'),k=Math.min(3,(maxW||2400)/rw);
+let OCRM=null;const TOPT=()=>({workerPath:new URL('ocr/worker.min.js',location.href).href,corePath:new URL('ocr/',location.href).href,langPath:new URL('ocr/lang',location.href).href,gzip:true,errorHandler:e=>{OCRERR=String(e&&e.message||e)}});let OCRERR='';
+async function ocrMrzWorker(){if(!OCRM){OCRM=await Tesseract.createWorker('eng',1,{...TOPT(),logger:()=>{}});await OCRM.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<',tessedit_pageseg_mode:'6'})}return OCRM}
+const IMGC=new WeakMap();
+async function imgOf(file){if(IMGC.has(file))return IMGC.get(file);const i=await new Promise((ok,no)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);ok(i)};i.onerror=()=>{URL.revokeObjectURL(u);no(new Error('Не удалось открыть фото (формат '+(file.type||'?')+'). Выберите JPEG/PNG или сфотографируйте камерой.'))};i.src=u});
+ const W=i.naturalWidth,H=i.naturalHeight,k=Math.min(1,2000/Math.max(W,H)),c=document.createElement('canvas');c.width=Math.round(W*k);c.height=Math.round(H*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);c.naturalWidth=c.width;c.naturalHeight=c.height;c._src=i;IMGC.set(file,c);return c}
+function cropRot(img,rot,y0,y1,maxW){const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height,rw=rot%180?H:W,rh=rot%180?W:H,c=document.createElement('canvas'),k=Math.min(2,(maxW||1800)/rw);
  const t=document.createElement('canvas');t.width=Math.round(rw*k);t.height=Math.round(rh*k);const x=t.getContext('2d');x.translate(t.width/2,t.height/2);x.rotate(rot*Math.PI/180);x.scale(k,k);x.drawImage(img,-W/2,-H/2);
  const sy=Math.round(t.height*y0),sh=Math.round(t.height*(y1-y0));c.width=t.width;c.height=sh;const cx=c.getContext('2d');cx.filter='grayscale(1) contrast(1.8)';cx.drawImage(t,0,sy,t.width,sh,0,0,t.width,sh);return c}
-async function mrzScan(file){const img=await imgOf(file),w=await ocrMrzWorker();let best=null;
- for(const rot of [0,180,90,270])for(const [a,b] of [[.62,1],[.4,1],[0,1]]){const t=(await w.recognize(cropRot(img,rot,a,b))).data.text;const r=mrzParse(t.split('\n').map(l=>/RUS/.test(l)&&!/^\s*[PР]/.test(l)&&/^\S{9}/.test(l.replace(/\s/g,''))?mrzFix2(l.replace(/\s/g,'')):l).join('\n'));
+async function mrzScan(file){const img=(await imgOf(file))._src,w=await ocrMrzWorker();let best=null;
+ for(const [rot,a,b] of [[0,.6,1],[180,.6,1],[90,.6,1],[270,.6,1],[0,.35,1],[180,.35,1]]){ocrSt(`Ищу строку «<<<» на фото ${CUR+1} (поворот ${rot}°)…`);const t=(await w.recognize(cropRot(img,rot,a,b,2400))).data.text;const r=mrzParse(t.split('\n').map(l=>/RUS/.test(l)&&!/^\s*[PР]/.test(l)&&/^\S{9}/.test(l.replace(/\s/g,''))?mrzFix2(l.replace(/\s/g,'')):l).join('\n'));
   const sc=(r.ok?10:0)+(r.name?3:0)+(r.ser?2:0)+(r.code?1:0);if(sc&&(!best||sc>best.sc))best={...r,sc,rot};if(best&&best.sc>=15)return best}
  return best}
 const cleanTxt=s=>String(s||'').replace(/[^А-ЯЁа-яё0-9 .,\-/№«»"()]/g,' ').replace(/\s+[^\sА-ЯЁа-яё0-9№]+(?=\s|$)/g,' ').replace(/(^|\s)[ъьЪЬ](?=\s|$)/g,' ').replace(/\s+/g,' ').replace(/^[\s.,-]+|[\s.,-]+$/g,'').trim();
@@ -679,23 +681,25 @@ function goodDate(s){const m=/^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s||'');return !!
 function ocrPut(f,k,v,q){if(v==null||v==='')return 0;f._q=f._q||{};if((f._q[k]||0)>q&&f[k])return 0;f[k]=v;f._q[k]=q;return 1}
 async function ocrRunMany(inp){const files=[...(inp.files||[])].slice(0,3);inp.value='';ocrMenu(false);if(!files.length)return;
  const f=CT.f,got={};try{ocrSt('Загрузка распознавания…',0);await ocrLib();
-  if(!OCRW)OCRW=await Tesseract.createWorker(['rus','eng'],1,{logger:m=>{if(m.status==='recognizing text')ocrSt(`Распознаю фото ${CUR+1} из ${files.length}…`,Math.round(m.progress*100));else ocrSt('Загрузка (первый раз дольше)…',Math.round((m.progress||0)*100))}});
+  if(!OCRW)OCRW=await Tesseract.createWorker(['rus','eng'],1,{...TOPT(),logger:m=>{if(m.status==='recognizing text')ocrSt(`Распознаю фото ${CUR+1} из ${files.length}…`,Math.round(m.progress*100));else ocrSt('Загрузка (первый раз дольше)…',Math.round((m.progress||0)*100))}});
   const put=(k,v,q)=>{if(ocrPut(f,k,v,q))got[k]=1};
   for(CUR=0;CUR<files.length;CUR++){const file=files[CUR];ocrSt(`Ищу строку MRZ на фото ${CUR+1} из ${files.length}…`);
-   let m=null;try{m=await mrzScan(file)}catch(e){}
-   const rot=m?m.rot:0,img=await imgOf(file),t1=(await OCRW.recognize(cropRot(img,rot,0,1,2200))).data.text;
+   let m=null;try{m=await mrzScan(file)}catch(e){OCRERR=String(e&&e.message||e)}ocrSt(`Читаю текст фото ${CUR+1} из ${files.length}…`);
+   const rot=m?m.rot:0,img=await imgOf(file),t1=(await OCRW.recognize(cropRot(img,rot,0,1,1800))).data.text;
    const r=passParse(t1),isMain=!!(m||r.code||r.ser||/ПАСПОРТ|Фамилия|Дата рождения/i.test(t1));
    const U=t1.toUpperCase().replace(/Ё/g,'Е'),nsc=n=>{if(!n)return -1;const w=n.split(' ');if(w.length<2)return 0;return w.reduce((a,x)=>a+(x.length>=3?1:0)+(U.includes(x.toUpperCase().replace(/Ё/g,'Е'))?3:0),0)+(w.length===3?1:0)};
    const cp=w=>w?w[0].toUpperCase()+w.slice(1).toLowerCase():'';const vars=n=>{if(!n)return [];n=n.split(' ').filter(w=>w.length>1).join(' ');const out=[n],w=n.split(' ');if(w.length===2){const x=w[1];for(let i=2;i<x.length-3;i++){if('СКЛЦЕ'.includes(x[i].toUpperCase()))out.push(w[0]+' '+cp(x.slice(0,i))+' '+cp(x.slice(i+1)));out.push(w[0]+' '+cp(x.slice(0,i))+' '+cp(x.slice(i)))}}return out};
-   {const c=[...vars(m&&m.name),...vars(r.name)].sort((a,b)=>nsc(b)-nsc(a))[0];if(c&&nsc(c)>=4)put('cname',c,nsc(c)>=9?3:2)}
+   const lev=(a,b)=>{const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t}}return d[b.length]};
+   const toks=[...new Set(t1.toUpperCase().match(/[А-ЯЁ]{3,}/g)||[])],fixN=n=>n&&n.split(' ').map(w=>{const W=w.toUpperCase();if(toks.includes(W))return w;let best=null,bd=9;for(const t of toks){const dd=lev(W.replace(/Ё/g,'Е'),t.replace(/Ё/g,'Е'));if(dd<bd&&Math.abs(t.length-W.length)<=2){bd=dd;best=t}}return best&&bd<=Math.max(1,Math.floor(W.length/4))?cp(best):w}).join(' ');
+   {const c=[...vars(m&&m.name),...vars(r.name)].map(fixN).sort((a,b)=>nsc(b)-nsc(a))[0];if(c&&nsc(c)>=4)put('cname',c,nsc(c)>=9?3:2)}
    if(m){const q=m.ok?3:2;if(goodDate(m.birth))put('cbirth',m.birth,q);if(m.ser&&m.num)put('cps',`${m.ser} ${m.num}`,q);else if(m.num)put('cps',m.num,1);if(goodDate(m.idate))put('cpd',m.idate,q);put('cpk',m.code,q);put('ccit','Российская Федерация',q)}
    if(isMain){if(goodDate(r.birth))put('cbirth',r.birth,1);if(r.ser&&r.num)put('cps',`${r.ser} ${r.num}`,1);if(goodDate(r.idate)&&r.idate!==f.cbirth)put('cpd',r.idate,1);if(r.code)put('cpk',r.code,1);
-    if(r.issuer){let iv=cleanTxt(r.issuer);if(/\sПО\s+[А-ЯЁ]+(ОЙ|ЕЙ)$/i.test(iv)&&/ОБЛАСТ/i.test(t1))iv+=' ОБЛАСТИ';else if(/\sПО\s+[А-ЯЁ]+(ОМУ|ЕМУ)$/i.test(iv)&&/КРА/i.test(t1))iv+=' КРАЮ';put('cpi',iv,2)}const bp=bplaceParse(t1);if(bp)put('cbplace',bp,2)}
+    if(r.issuer){let iv=cleanTxt(r.issuer).split(' ').filter(w=>w.length>2||/^(ГУ|ПО|В|И|ОВД|УВД|ТП|№)$/i.test(w)).join(' ');if(/\sПО\s+[А-ЯЁ]+(ОЙ|ЕЙ)$/i.test(iv)&&/ОБЛАСТ/i.test(t1))iv+=' ОБЛАСТИ';else if(/\sПО\s+[А-ЯЁ]+(ОМУ|ЕМУ)$/i.test(iv)&&/КРА/i.test(t1))iv+=' КРАЮ';put('cpi',iv,2)}const bp=bplaceParse(t1);if(bp)put('cbplace',bp,2)}
    if(/Зарегистр|Место жительства|ЖИТЕЛЬСТВ/i.test(t1)||!isMain){const a=addrClean(regParse(t1));if(a.length>8)put('caddr',a,2)}}
   const N={cname:'ФИО',cbirth:'дата рождения',cbplace:'место рождения',cps:'серия/номер',cpi:'кем выдан',cpd:'дата выдачи',cpk:'код',caddr:'адрес',ccit:'гражданство'},miss=Object.keys(N).filter(k=>!f[k]&&k!=='ccit');
   if(!Object.keys(got).length)throw new Error('empty');render();
   ocrSt(`✓ Распознано: ${Object.keys(got).map(k=>N[k]).filter(Boolean).join(', ')}.${miss.length?' Не найдено: '+miss.map(k=>N[k]).join(', ')+' — впишите вручную или добавьте фото.':''} Проверьте поля.`);
- }catch(e){render();ocrSt('Не удалось распознать. Сфотографируйте разворот ровно, целиком (с нижними строками «<<<»), без бликов, или введите вручную.')}}
+ }catch(e){render();const em=String(e&&e.message||e||'');ocrSt('❌ Не удалось распознать'+(em&&em!=='empty'?': '+em:'')+(OCRERR&&OCRERR!==em?' ('+OCRERR+')':'')+'. Сфотографируйте разворот ровно, целиком (с нижними строками «<<<»), без бликов, или введите вручную.')}}
 /* ===== v19: предпросмотр A4 ===== */
 document.head.insertAdjacentHTML('beforeend','<style>'+DOCCSS.split('@media')[0].replace(/#doc/g,'.pv')+`#pvOv{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:1000;background:#777}#pvScroll{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:calc(10px + env(safe-area-inset-top)) 0 calc(90px + env(safe-area-inset-bottom))}#pvBar{position:fixed;left:0;right:0;bottom:0;z-index:1001;display:flex;gap:8px;padding:8px calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));background:#222;box-shadow:0 -2px 8px #0008}#pvBar .btn{flex:1;min-height:48px;font-size:16px;margin:0;padding:8px 4px}#pvPages{transform-origin:0 0;width:794px}.a4{width:794px;height:1123px;box-sizing:border-box;padding:57px 57px;margin:0 auto 14px;background:#fff;box-shadow:0 2px 8px #0006;overflow:hidden}.a4 .pv{padding:0}</style>`);
 function ctPreview(){const html=ctDoc(),ov=document.createElement('div');ov.id='pvOv';ov.className='noprint';
@@ -806,7 +810,7 @@ function tplFill(){const f=CT.f,L=ll(),T=CT.type,ip=T==='ip',files=TPL;const dx=
   if(tl.startsWith('Аккумуляторы ')&&bats)tick(p,bats-1);
   if(s==='Характеристики')appendVal(p,[bspec(1),bspec(2)].filter(x=>x&&x!=='есть').join('; '),20);
   if(s==='Ключи, шт.')appendVal(p,f.keys,20);
-  if(s==='Комплектов')appendVal(p,f.keysets,20);
+  if(s==='Комплектов'){const ts=wq(p,'t');ts.forEach(t=>t.textContent='')}
   if(s==='Другое')appendVal(p,f.other,20);
   if(tl.startsWith('Замок велосипедный')&&f.kit&&f.kit.lock!=null)tick(p,f.kit.lock?0:1);
   if(s==='ФИО'&&hasBd(p)){appendVal(p,sigF%2===0?(ip?`ИП ${L.name}`:L.name):f.cname);sigF++}

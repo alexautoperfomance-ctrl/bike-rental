@@ -91,7 +91,7 @@ details.sec>summary h2{display:inline}details.sec>summary::after{content:' ▸';
 .cd.has{background:#eef6f1}.cd.today{border:2px solid #1f6f4a}.cd.sel{background:#1f6f4a;color:#fff}.cd.sel i,.cd.sel small{color:#fff}
 </style>
 <script>
-const KEY='ebikeRental.v2';const APP_VER='v24';
+const KEY='ebikeRental.v2';const APP_VER='v25';
 const TABS=[['dash','Сводка'],['overdue','Просрочки'],['rentals','Аренды'],['bikes','Велосипеды'],['clients','Арендаторы'],['docs','Договоры'],['data','Данные']];
 const ST={free:'свободен',rent:'в аренде',buyout:'выкуп',owned:'выкуплен',repair:'ремонт'};
 const ST_CLS={free:'free',rent:'rent',buyout:'buyout',owned:'owned',repair:'repair'};
@@ -500,7 +500,7 @@ function ctBike(id){const b=id?db.bikes.find(x=>x.id===id)||{}:{},f=CT.f;Object.
 function llSet(k,v){db.settings.landlord=Object.assign(ll(),{[k]:v});save()}
 const CTT={rent:'Договор аренды',buy:'Договор аренды с выкупом',dkp:'ДКП (рассрочка)',ip:'Договор аренды (ИП)'};
 const ACTR=['Фара, задний фонарь, поворотники','Тормоза','Рама, внешний вид','Колёса, шины','Руль, ручка газа','Дисплей','Мотор-колесо, контроллер, проводка','Сиденье, крылья, подножка','Зеркала, звонок'];
-const KIT=[['b1','АКБ 1'],['b2','АКБ 2'],['ch','Зарядное устройство'],['kofr','Кофр'],['bag','Багажник'],['muf','Муфты на руль'],['lock','Противоугонный замок'],['gps','GPS-трекер']];
+const KIT=[['b1','АКБ 1'],['b2','АКБ 2'],['ch','Зарядное устройство'],['kofr','Кофр'],['bag','Багажник'],['muf','Муфты на руль'],['lock','Противоугонный замок']];
 function kitHas(f,k){const v=(f.kit||{})[k];return v!=null?v:(k==='b1'?!!f.bat1:k==='b2'?!!f.bat2:false)}
 function kitNote(f,k){const n=(f.knote||{})[k];if(n!=null)return n;const b=k==='b1'?f.bat1:k==='b2'?f.bat2:'';return b&&b!=='есть'?b:''}
 const OCRB=`<div class="row" style="align-items:center"><b>Паспорт:</b> <label class="btn sec" style="display:inline-block;cursor:pointer">📷 Сфотографировать<input id="ocrIn" type="file" accept="image/*" capture="environment" style="display:none" onchange="ocrRun(this,'main')"></label> <label class="btn sec" style="display:inline-block;cursor:pointer">🖼 Из галереи<input id="ocrInG" type="file" accept="image/*" style="display:none" onchange="ocrRun(this,'main')"></label></div><div class="row" style="align-items:center"><b>Прописка:</b> <label class="btn sec" style="display:inline-block;cursor:pointer">📷 Сфотографировать<input id="ocrIn2" type="file" accept="image/*" capture="environment" style="display:none" onchange="ocrRun(this,'reg')"></label> <label class="btn sec" style="display:inline-block;cursor:pointer">🖼 Из галереи<input id="ocrIn2G" type="file" accept="image/*" style="display:none" onchange="ocrRun(this,'reg')"></label></div><div id="ocrSt" class="muted">Фото не сохраняется и никуда не отправляется — распознаётся на телефоне.</div>`;
@@ -529,7 +529,6 @@ V.docs=()=>{if(!CT.f)ctNew('');const f=CT.f,L=ll(),T=CT.type,inp=(k,l,t)=>`<div>
  <div class="row">${inp('keys','Ключей, комплектов','number')}</div></div>
  <div class="card"><button class="btn" id="pvBtn" onclick="ctPreview()">👁 Предпросмотр</button> <button class="btn sec" onclick="ctPrint()">🖨 Печать</button> <button class="btn sec" onclick="ctMail()">✉ На почту</button></div></div><div id="doc" class="onlyprint"></div>`};
 function ctFill(){const d=document.getElementById('doc');if(d)d.innerHTML=ctDoc();return d}
-function ctPrint(){ctFill();print()}
 const nf=n=>n===''||n==null?'________':Number(n).toLocaleString('ru-RU');
 const bl=(v,w)=>v?esc(v):'_'.repeat(w||16);
 const _O=['','один','два','три','четыре','пять','шесть','семь','восемь','девять'],_OF=['','одна','две','три','четыре','пять','шесть','семь','восемь','девять'],_TN=['десять','одиннадцать','двенадцать','тринадцать','четырнадцать','пятнадцать','шестнадцать','семнадцать','восемнадцать','девятнадцать'],_T=['','','двадцать','тридцать','сорок','пятьдесят','шестьдесят','семьдесят','восемьдесят','девяносто'],_H=['','сто','двести','триста','четыреста','пятьсот','шестьсот','семьсот','восемьсот','девятьсот'];
@@ -572,7 +571,7 @@ function ctDoc(){const f=CT.f,L=ll(),T0=CT.type,ip=T0==='ip',T=ip?'rent':T0,dkp=
  // Приложение 2: ответственность
  o+=`<div class="pb"></div><h3 class="c">ОТВЕТСТВЕННОСТЬ ${dkp?'ПОКУПАТЕЛЯ':'АРЕНДАТОРА'}</h3><p class="c2">Приложение № 2 к договору${f.num?' № '+esc(f.num):''} от ${dt}</p>
  <p class="cl">Я, ${bl(f.cname,30)}, понимаю, что ${dkp?'до полной оплаты':'до возврата Электровелосипеда'} отвечаю материально, а в случаях, предусмотренных законом, — и по Уголовному кодексу РФ за:</p><ol class="cl">
- <li>кражу, продажу, залог или передачу ${BKa==='Товар'?'Товара':'электровелосипеда'} другим лицам (ст. 158, 160 УК РФ);</li><li>разборку, замену деталей, мотора, контроллера или аккумуляторов, снятие GPS-трекера, изменение номера рамы;</li><li>обман: ложные паспортные данные, адрес или телефон (ст. 159 УК РФ); невозврат и сокрытие, отказ выходить на связь;</li><li>ДТП с моим участием и их последствия;</li><li>пожар или взрыв аккумулятора, в том числе при зарядке, и ущерб жилью и соседям;</li><li>вред здоровью и имуществу других людей, штрафы за нарушение ПДД.</li></ol>
+ <li>кражу, продажу, залог или передачу ${BKa==='Товар'?'Товара':'электровелосипеда'} другим лицам (ст. 158, 160 УК РФ);</li><li>разборку, замену деталей, мотора, контроллера или аккумуляторов, изменение номера рамы;</li><li>обман: ложные паспортные данные, адрес или телефон (ст. 159 УК РФ); невозврат и сокрытие, отказ выходить на связь;</li><li>ДТП с моим участием и их последствия;</li><li>пожар или взрыв аккумулятора, в том числе при зарядке, и ущерб жилью и соседям;</li><li>вред здоровью и имуществу других людей, штрафы за нарушение ПДД.</li></ol>
  <p class="cl">В этих случаях я возмещаю оценочную стоимость (${rubW(f.bikeVal)} за электровелосипед, ${rubW(f.batVal)} за каждый аккумулятор), долг, пени и убытки. ${A} за этот вред не отвечает.</p>
  <div class="blk">${sigT(`${B.toUpperCase()}<br>${esc(f.cname)||'&nbsp;'}`,`Дата: ${dt}<div class="sl">Подпись: ____________________</div>`)}</div>`;
  // Приложение 1: акт
@@ -587,11 +586,6 @@ function ctDoc(){const f=CT.f,L=ll(),T0=CT.type,ip=T0==='ip',T=ip?'rent':T0,dkp=
 const DOCCSS=`#doc{background:#fff;color:#000;font:11pt/1.4 Arial,Helvetica,sans-serif;padding:16px;overflow-wrap:break-word}#doc p{margin:0}#doc .cl{margin:0 0 8px;break-inside:avoid;page-break-inside:avoid}#doc h3.c{text-align:center;font-size:14pt;line-height:1.25;margin:0 0 8px}#doc .c2{text-align:center;font-size:10pt;margin:-4px 0 10px}#doc .org{text-align:center;border-bottom:1.5px solid #000;padding-bottom:6px;margin-bottom:10px;font-size:10pt}#doc .org b{font-size:16pt;letter-spacing:1px}#doc table{width:100%;border-collapse:collapse;margin:6px 0 10px}#doc .hd td{padding:0 0 8px}#doc .rq td{width:50%;vertical-align:top;border:1px solid #000;padding:6px 8px;line-height:1.35}#doc .sl{margin-top:16px}#doc ol{margin:0 0 8px;padding-left:22px}#doc li{margin:2px 0;break-inside:avoid}#doc .t td,#doc .t th{border:1px solid #000;padding:3px 6px;font-size:10.5pt;line-height:1.3;text-align:left}#doc .t th{background:#eee}#doc .t td.m{text-align:center;width:16%}#doc .t td:last-child{width:30%}#doc .blk,#doc .t tr,#doc .rq{break-inside:avoid;page-break-inside:avoid}.onlyprint{display:none}
 @media print{@page{size:A4;margin:13mm 20mm 10mm 20mm}body{background:#fff}header,nav,.noprint{display:none!important}main{padding:0!important}#doc,.onlyprint{display:block!important;padding:0}#doc .pb{break-before:page;page-break-before:always}}`;
 document.head.insertAdjacentHTML('beforeend','<style>'+DOCCSS+'</style>');
-async function ctMail(){const el=ctFill(),f=CT.f,name=`${CTT[CT.type]} ${f.num||''} ${f.cname||''}`.trim();
- const html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(name)}</title><style>${DOCCSS}</style></head><body><div id="doc">${el.innerHTML}</div></body></html>`;
- const file=new File([html],name.replace(/[^\wа-яё№ .-]/gi,'_')+'.html',{type:'text/html'});
- try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});return}}catch(e){if(e.name==='AbortError')return}
- location.href='mailto:?subject='+encodeURIComponent(name)+'&body='+encodeURIComponent(el.innerText.slice(0,1800)+'\n…')}
 /* ===== v19: распознавание паспорта (на устройстве, Tesseract.js) ===== */
 const MRZC={A:'А',B:'Б',V:'В',G:'Г',D:'Д',E:'Е','2':'Ё',J:'Ж',Z:'З',I:'И',Q:'Й',K:'К',L:'Л',M:'М',N:'Н',O:'О',P:'П',R:'Р',S:'С',T:'Т',U:'У',F:'Ф',H:'Х',C:'Ц','3':'Ч','4':'Ш',W:'Щ',X:'Ъ',Y:'Ы','9':'Ь','6':'Э','7':'Ю','8':'Я'};
 const cap=w=>w?w[0]+w.slice(1).toLowerCase():'';
@@ -657,4 +651,55 @@ function ctPreview(){const html=ctDoc(),ov=document.createElement('div');ov.id='
    else{box.removeChild(el);box=np();box.appendChild(el)}}}
  const z=Math.min(1,(innerWidth-12)/794),W=ov.querySelector('#pvWrap');P.style.transform=`scale(${z})`;W.style.cssText=`width:${794*z}px;height:${P.offsetHeight*z}px;margin:0 auto;overflow:hidden`}
 function ctPvClose(){const o=document.getElementById('pvOv');if(o)o.remove();document.body.style.overflow=''}
+/* ===== v25: Word (.docx) на устройстве ===== */
+const CRCT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRCT[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function zipStore(files){const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+ for(const [name,data] of files){const nb=enc.encode(name),d=typeof data==='string'?enc.encode(data):data,c=crc32(d);
+  const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint32(14,c,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,nb.length,true);
+  parts.push(new Uint8Array(h.buffer),nb,d);
+  const e=new DataView(new ArrayBuffer(46));e.setUint32(0,0x02014b50,true);e.setUint16(4,20,true);e.setUint16(6,20,true);e.setUint16(8,0x0800,true);e.setUint32(16,c,true);e.setUint32(20,d.length,true);e.setUint32(24,d.length,true);e.setUint16(28,nb.length,true);e.setUint32(42,off,true);
+  cd.push(new Uint8Array(e.buffer),nb);off+=30+nb.length+d.length}
+ const cs=cd.reduce((a,x)=>a+x.length,0),end=new DataView(new ArrayBuffer(22));end.setUint32(0,0x06054b50,true);end.setUint16(8,files.length,true);end.setUint16(10,files.length,true);end.setUint32(12,cs,true);end.setUint32(16,off,true);
+ return new Blob([...parts,...cd,new Uint8Array(end.buffer)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
+const xe=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function dxRuns(node,o={}){let r='';for(const n of node.childNodes){if(n.nodeType===3){const t=n.nodeValue.replace(/\s+/g,' ');if(t)r+=`<w:r><w:rPr>${o.b?'<w:b/>':''}${o.sz?`<w:sz w:val="${o.sz}"/>`:''}</w:rPr><w:t xml:space="preserve">${xe(t.replace(/☑/g,'☒'))}</w:t></w:r>`}
+  else if(n.nodeName==='BR')r+='<w:r><w:br/></w:r>';else if(n.nodeName==='B'||n.nodeName==='STRONG')r+=dxRuns(n,{...o,b:1});else if(n.nodeName==='BIG')r+=dxRuns(n,{...o,b:1,sz:34});else if(n.nodeName==='SMALL')r+=dxRuns(n,{...o,sz:20});
+  else if(n.nodeType===1){if(n.classList.contains('sl'))r+='<w:r><w:br/></w:r><w:r><w:br/></w:r>';r+=dxRuns(n,o)}}return r}
+const dxP=(runs,{jc,after=120,before=0,keep}={})=>`<w:p><w:pPr>${keep?'<w:keepNext/><w:keepLines/>':'<w:keepLines/>'}<w:spacing w:before="${before}" w:after="${after}" w:line="264" w:lineRule="auto"/>${jc?`<w:jc w:val="${jc}"/>`:''}</w:pPr>${runs}</w:p>`;
+function dxTable(t){const bord=!t.classList.contains('hd'),rows=[...t.querySelectorAll('tr')],nc=Math.max(...rows.map(r=>[...r.children].reduce((a,c)=>a+(+c.colSpan||1),0))),W=9638;
+ const ws=t.classList.contains('t')?[Math.round(W*.52),Math.round(W*.16),W-Math.round(W*.52)-Math.round(W*.16)]:Array(nc).fill(Math.floor(W/nc));
+ const b=bord?'<w:tblBorders>'+['top','left','bottom','right','insideH','insideV'].map(x=>`<w:${x} w:val="single" w:sz="6" w:space="0" w:color="000000"/>`).join('')+'</w:tblBorders>':'';
+ let x=`<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/>${b}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${ws.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`;
+ for(const tr of rows){x+='<w:tr><w:trPr><w:cantSplit/></w:trPr>';let ci=0;for(const td of tr.children){const sp=+td.colSpan||1,w=ws.slice(ci,ci+sp).reduce((a,v)=>a+v,0);ci+=sp;
+  const jc=td.classList.contains('m')||td.style.textAlign==='center'?'center':td.style.textAlign==='right'?'right':'';
+  x+=`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${sp>1?`<w:gridSpan w:val="${sp}"/>`:''}${td.tagName==='TH'?'<w:shd w:val="clear" w:color="auto" w:fill="EEEEEE"/>':''}</w:tcPr>${dxP(td.tagName==='TH'?dxRuns(td,{b:1}):dxRuns(td),{jc,after:0,before:bord?40:0})}</w:tc>`}x+='</w:tr>'}
+ return x+'</w:tbl>'+dxP('',{after:80})}
+function dxBody(root){let x='';for(const el of root.children){const c=el.classList;
+ if(c.contains('pb'))x+='<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+ else if(c.contains('blk'))x+=dxBody(el);
+ else if(c.contains('org')){x+=dxP(dxRuns(el),{jc:'center',after:200})}
+ else if(el.tagName==='H3')x+=dxP(dxRuns(el,{b:1,sz:28}),{jc:'center',after:120,keep:1});
+ else if(el.tagName==='H4')x+=dxP(dxRuns(el,{b:1}),{after:60,keep:1});
+ else if(c.contains('c2'))x+=dxP(dxRuns(el,{sz:20}),{jc:'center',after:200});
+ else if(el.tagName==='TABLE')x+=dxTable(el);
+ else if(el.tagName==='OL'){let i=+(el.getAttribute('start')||1);for(const li of el.children)x+=`<w:p><w:pPr><w:keepLines/><w:spacing w:after="60" w:line="264" w:lineRule="auto"/><w:ind w:left="400" w:hanging="300"/></w:pPr><w:r><w:t xml:space="preserve">${i++}. </w:t></w:r>${dxRuns(li)}</w:p>`;x+=dxP('',{after:60})}
+ else x+=dxP(dxRuns(el),{keep:el.children.length===1&&el.firstElementChild.tagName==='B'&&el.textContent.trim()===el.firstElementChild.textContent.trim()})}return x}
+function ctDocx(){const d=document.createElement('div');d.innerHTML=ctDoc();
+ // орг-шапка: крупное название
+ const og=d.querySelector('.org b');if(og)og.outerHTML=`<big>${og.textContent}</big>`;
+ const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${dxBody(d)}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="1134" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+ const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="ru-RU"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`;
+ return zipStore([['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'],
+  ['_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'],
+  ['word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+  ['word/document.xml',doc],['word/styles.xml',styles]])}
+function ctFileName(){const f=CT.f,d=(f.date||today()).split('-').reverse().join('.');return `Договор_${(f.cname||'без_имени').trim().replace(/\s+/g,'_')}_${d}.docx`.replace(/[\\/:*?"<>|]/g,'_')}
+async function ctShareDocx(mode){const name=ctFileName(),file=new File([ctDocx()],name,{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+ try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name.replace(/\.docx$/,'')});return 'shared'}}catch(e){if(e.name==='AbortError')return 'abort'}
+ const u=URL.createObjectURL(file),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);
+ if(mode==='mail')setTimeout(()=>{location.href='mailto:?subject='+encodeURIComponent(name.replace(/\.docx$/,'').replace(/_/g,' '))+'&body='+encodeURIComponent('Договор во вложении: '+name+' (файл скачан — прикрепите его к письму).')},400);
+ return 'download'}
+function ctMail(){return ctShareDocx('mail')}
+function ctPrint(){return ctShareDocx('print')}
 </script></body></html>

@@ -91,7 +91,7 @@ details.sec>summary h2{display:inline}details.sec>summary::after{content:' ▸';
 .cd.has{background:#eef6f1}.cd.today{border:2px solid #1f6f4a}.cd.sel{background:#1f6f4a;color:#fff}.cd.sel i,.cd.sel small{color:#fff}
 </style>
 <script>
-const KEY='ebikeRental.v2';const APP_VER='v20';
+const KEY='ebikeRental.v2';const APP_VER='v21';
 const TABS=[['dash','Сводка'],['overdue','Просрочки'],['rentals','Аренды'],['bikes','Велосипеды'],['clients','Арендаторы'],['docs','Договоры'],['data','Данные']];
 const ST={free:'свободен',rent:'в аренде',buyout:'выкуп',owned:'выкуплен',repair:'ремонт'};
 const ST_CLS={free:'free',rent:'rent',buyout:'buyout',owned:'owned',repair:'repair'};
@@ -488,10 +488,13 @@ const LLF=[['name','ФИО'],['birth','Дата рождения'],['passport','
 function ll(){const S=db.settings;if(S.landlord&&!S.llV19){Object.assign(S.landlord,{name:LL_DEF.name,birth:LL_DEF.birth,passport:LL_DEF.passport});S.llV19=1;save()}const o=Object.assign({},LL_DEF,S.landlord||{});for(const k of ['name','birth','passport','addr','phone','inn','org','ogrnip','rs','bank','bik','ks','binn','bkpp'])if(!o[k])o[k]=LL_DEF[k];if(!o.uaddr)o.uaddr=o.addr;return o}
 function ctNew(rid){const r=db.rentals.find(x=>x.id===rid)||{},b=db.bikes.find(x=>x.id===r.bikeId)||{},c=db.clients.find(x=>x.id===r.clientId)||{};
  CT.f={rid:rid||'',num:'',date:today(),city:'Новосибирск',cname:c.name||'',cbirth:'',cpass:c.passport||'',caddr:'',cphone:c.phone||'',
-  brand:b.brand||'',model:b.model||'',vin:b.vin||'',year:b.year||'',color:b.color||'',mileage:b.mileage||'',bnum:b.num||'',
+  brand:b.brand||'',model:b.model||'',vin:b.vin||'',year:b.year||'',color:b.color||'',mileage:b.mileage||'',bnum:b.num||'',bat1:hasBat(b,1)?(b.battery1||'есть'):'',bat2:hasBat(b,2)?(b.battery2||'есть'):'',
   start:r.start||today(),term:'12 месяцев',weekly:r.weekly||'',deposit:r.deposit||'',bwk:r.buyout?(r.weeks||''):'',bprice:r.buyout&&r.weeks?Math.round((r.buyoutPrice||0)/r.weeks):'',
   price:r.buyoutPrice||'',pm1:false,pm2:false,pm3:false,first:'',inst:r.weekly||'',instN:r.weeks||'',bikeVal:150000,batVal:50000};CT.show=false}
 function ctSet(k,v){CT.f[k]=v}
+function ctFreeBikes(){const busy=new Set(active().map(r=>r.bikeId));return orderBy(db.bikes.filter(b=>!busy.has(b.id)),b=>b.num)}
+function ctFree(){const L=ctFreeBikes();return `<div class="card" id="freeList">${L.length?L.map(b=>`<button class="btn sec" style="display:block;width:100%;text-align:left;margin:3px 0" onclick="ctBike('${b.id}')">${esc([b.num,b.brand,b.model].filter(Boolean).join(' '))}${b.vin?` · ${esc(b.vin)}`:''}</button>`).join(''):'<div class="muted">Свободных велосипедов нет</div>'}</div>`}
+function ctBike(id){const b=id?db.bikes.find(x=>x.id===id)||{}:{},f=CT.f;Object.assign(f,{brand:b.brand||'',model:b.model||'',vin:b.vin||'',year:b.year||'',color:b.color||'',mileage:b.mileage||'',bnum:b.num||'',bat1:hasBat(b,1)?(b.battery1||'есть'):'',bat2:hasBat(b,2)?(b.battery2||'есть'):''});CT.pick=false;CT.show=false;render()}
 function llSet(k,v){db.settings.landlord=Object.assign(ll(),{[k]:v});save()}
 const CTT={rent:'Договор аренды',buy:'Договор аренды с выкупом',dkp:'ДКП (рассрочка)',ip:'Договор аренды (ИП)'};
 V.docs=()=>{if(!CT.f)ctNew('');const f=CT.f,L=ll(),inp=(k,l,t)=>`<div><label>${l}</label><input ${t?`type="${t}"`:''} value="${esc(f[k])}" oninput="ctSet('${k}',this.value)"></div>`;
@@ -501,7 +504,7 @@ V.docs=()=>{if(!CT.f)ctNew('');const f=CT.f,L=ll(),inp=(k,l,t)=>`<div><label>${l
  <label>Аренда (автозаполнение арендатора и велосипеда)</label><select onchange="ctNew(this.value);render()"><option value="">— вручную —</option>${R}</select>
  <div class="row">${inp('num','№ договора')}${inp('date','Дата','date')}${inp('city','Город')}</div>
  <h3>${CT.type==='dkp'?'Покупатель':'Арендатор'}</h3><div class="row"><label class="btn sec" style="display:inline-block;cursor:pointer">📷 Паспорт<input id="ocrIn" type="file" accept="image/*" capture="environment" style="display:none" onchange="ocrRun(this,'main')"></label> <label class="btn sec" style="display:inline-block;cursor:pointer">📷 Прописка<input id="ocrIn2" type="file" accept="image/*" capture="environment" style="display:none" onchange="ocrRun(this,'reg')"></label></div><div id="ocrSt" class="muted">Фото не сохраняется и никуда не отправляется — распознаётся на телефоне.</div><div class="row">${inp('cname','ФИО')}${inp('cbirth','Дата рождения')}${inp('cphone','Телефон')}</div><div class="row">${inp('cpass','Паспорт')}${inp('caddr','Адрес регистрации (место жительства)')}</div>
- <h3>Велосипед</h3><div class="row">${inp('brand','Марка')}${inp('model','Модель')}${inp('vin','VIN / рама')}${inp('year','Год')}${inp('color','Цвет')}${inp('mileage','Пробег, км')}</div>
+ <h3>Велосипед</h3><div class="row"><button class="btn sec" id="pickBike" onclick="CT.pick=!CT.pick;render()">🚲 Выбрать велосипед</button> <button class="btn sec" id="manBike" onclick="ctBike(null)">✍ Заполнить вручную</button></div>${CT.pick?ctFree():''}<div class="row">${inp('brand','Марка')}${inp('model','Модель')}${inp('vin','VIN / рама')}${inp('year','Год')}${inp('color','Цвет')}${inp('mileage','Пробег, км')}</div><div class="row">${inp('bat1','Аккумулятор 1')}${inp('bat2','Аккумулятор 2')}</div>
  ${CT.type==='dkp'?`<h3>Цена и рассрочка</h3><div class="row">${inp('price','Цена, ₽','number')}${inp('first','Первый взнос, ₽','number')}${inp('inst','Платёж в неделю, ₽','number')}${inp('instN','Кол-во недель','number')}${inp('start','Начало платежей','date')}</div>`
  :`<h3>Условия</h3><div class="row">${inp('start','Начало аренды','date')}${inp('term','Срок')}${inp('weekly','Плата в неделю, ₽','number')}${inp('deposit','Залог, ₽','number')}</div>${CT.type==='buy'?`<div class="row">${inp('bprice','Выкуп в неделю, ₽','number')}${inp('bwk','Недель для выкупа','number')}</div>`:''}`}
  ${CT.type==='ip'?`<h3>Способ оплаты</h3>${[['pm1','Перевод на р/с ИП по реквизитам'],['pm2','Оплата по QR-коду (СБП)'],['pm3','Безналичная оплата картой через терминал']].map(([k,l])=>`<label style="display:block"><input type="checkbox" id="${k}" ${f[k]?'checked':''} onchange="ctSet('${k}',this.checked)"> ${l}</label>`).join('')}<div class="muted">Не отмечено — в договоре будут пустые ☐ для выбора от руки.</div>`:''}<div class="row">${inp('bikeVal','Оценка велосипеда, ₽','number')}${inp('batVal','Оценка аккумулятора, ₽','number')}</div>
@@ -542,7 +545,7 @@ function ctDoc(){const f=CT.f,L=ll(),T0=CT.type,ip=T0==='ip',T=ip?'rent':T0,dkp=
  o+=`<div class="pb"></div><h3 class="c">АКТ ПРИЁМА-ПЕРЕДАЧИ<br><small>Приложение № 1 к договору № ${no} от ${f.date?fd(f.date):'________'} г.</small></h3><div class="hd"><span>г. ${esc(f.city)}</span><span>${f.date?fd(f.date):'«___» ________ 20__'} г.</span></div>
  ${p(`${A} передал, а ${B} принял ${dkp?'Товар':'Имущество'}: марка ${bl(f.brand)}, модель ${bl(f.model)}, VIN/рама ${bl(f.vin,20)}, год выпуска ${bl(f.year,6)}, цвет ${bl(f.color,10)}, пробег ${bl(f.mileage,8)} км.`)}
  <table class="t"><tr><th>Узел / элемент</th><th>Состояние</th><th>Примечание</th></tr>${rows.map(r=>`<tr><td>${r}</td><td>☐ Исправно ☐ Неисправно</td><td></td></tr>`).join('')}</table>
- <h4>Комплектация</h4><table class="t"><tr><th>Предмет</th><th>Наличие</th><th>Примечание</th></tr>${kit.map(r=>`<tr><td>${r}</td><td>☐ Есть ☐ Нет</td><td></td></tr>`).join('')}<tr><td>Ключи</td><td colspan="2">кол-во комплектов: _____</td></tr></table>
+ <h4>Комплектация</h4><table class="t"><tr><th>Предмет</th><th>Наличие</th><th>Примечание</th></tr>${kit.map((r,i)=>{const v=i<2?f['bat'+(i+1)]:'';return `<tr><td>${r}</td><td>${v?'☑ Есть ☐ Нет':'☐ Есть ☐ Нет'}</td><td>${v&&v!=='есть'?esc(v):''}</td></tr>`}).join('')}<tr><td>Ключи</td><td colspan="2">кол-во комплектов: _____</td></tr></table>
  ${p(`${B} осмотрел(а) ${dkp?'Товар':'Имущество'}, претензий по состоянию и комплектации не имеет, за исключением указанных в примечаниях.`)}
  <div class="two"><div>Передал (${A}${ip?', ИП':''}):<br><br>____________ / ${esc(L.name)} /</div><div>Принял (${B}):<br><br>____________ / ${esc(f.cname)||'__________'} /</div></div>`;
  return o}

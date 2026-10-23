@@ -91,7 +91,7 @@ details.sec>summary h2{display:inline}details.sec>summary::after{content:' ▸';
 .cd.has{background:#eef6f1}.cd.today{border:2px solid #1f6f4a}.cd.sel{background:#1f6f4a;color:#fff}.cd.sel i,.cd.sel small{color:#fff}
 </style>
 <script>
-const KEY='ebikeRental.v2';const APP_VER='v15';
+const KEY='ebikeRental.v2';const APP_VER='v16';
 const TABS=[['dash','Сводка'],['overdue','Просрочки'],['rentals','Аренды'],['bikes','Велосипеды'],['clients','Арендаторы'],['data','Данные']];
 const ST={free:'свободен',rent:'в аренде',buyout:'выкуп',owned:'выкуплен',repair:'ремонт'};
 const ST_CLS={free:'free',rent:'rent',buyout:'buyout',owned:'owned',repair:'repair'};
@@ -134,7 +134,7 @@ const bname=b=>b.num+' '+[b.brand,b.model].filter(Boolean).join(' ')+' · '+b.vi
 /* однократно: удалить демо-данные (флаг demo), записи пользователя не трогаем */
 if(!db.settings.demoPurged){const ib=new Set(db.bikes.filter(b=>b.demo).map(b=>b.id)),ic=new Set(db.clients.filter(c=>c.demo).map(c=>c.id));
  db.rentals=db.rentals.filter(r=>!ib.has(r.bikeId)&&!ic.has(r.clientId));db.bikes=db.bikes.filter(b=>!ib.has(b.id));db.clients=db.clients.filter(c=>!ic.has(c.id));db.settings.demoPurged=true;save()}
-db.bikes.forEach(b=>{if(b.tracker===undefined)b.tracker='';if(!b.photos)b.photos=[];for(const k of ['brand','battery1','battery2'])if(b[k]===undefined)b[k]=''});db.clients.forEach(c=>{if(!c.photos)c.photos=[]});db.rentals.forEach(r=>{normRental(r);if(!Array.isArray(r.terms))r.terms=[]});save();
+db.bikes.forEach(b=>{if(b.tracker===undefined)b.tracker='';if(!b.photos)b.photos=[];for(const k of ['brand','battery1','battery2'])if(b[k]===undefined)b[k]=''});db.clients.forEach(c=>{if(!c.photos)c.photos=[]});db.rentals.forEach(r=>{normRental(r);if(!Array.isArray(r.terms))r.terms=[];autoFix(r)});save();
 
 /* ===== Позиции аренды (parts) =====
  Аренда состоит из позиций {name, weekly, weeks}. Неделя k (0,1,2…): позиция действует, пока k < weeks (или всегда, если weeks пусто).
@@ -146,6 +146,11 @@ function normRental(r){if(!Array.isArray(r.parts)||!r.parts.length)r.parts=[{nam
  r.parts=r.parts.map(p=>({name:String(p.name??'').trim()||'Позиция',weekly:+p.weekly||0,weeks:+p.weeks>0?Math.floor(+p.weeks):null}));return syncLegacy(r)}
 /* История условий: r.terms = [{from,to,buyout,buyoutPrice,parts}] — прошлые периоды (до смены типа); текущие условия — в самой аренде, действуют с cs(r)=r.termFrom||r.start */
 const cs=r=>r.termFrom||r.start;
+/* авторемонт (однократно): аренда без истории, все платежи одинаковой суммы ≠ текущей ставке (условия меняли в старой версии) —
+ оплаченные прошлые недели фиксируются по фактической сумме платежа, текущие условия действуют с первой неоплаченной недели. Платежи не меняются. */
+function autoFix(r){if(r.fixV)return;r.fixV=1;if(r.end||r.terms.length||r.buyout)return;const P=r.payments.filter(p=>+p.amount>0);if(!P.length)return;const m=+P[0].amount;
+ if(P.some(p=>+p.amount!==m)||m===weekAmt(r,0))return;const n=Math.min(P.length,Math.max(0,Math.floor((dnum(today())-dnum(r.start))/7)));if(n<1)return;const D=dstr(dnum(r.start)+7*n);
+ r.terms.push({from:r.start,to:D,buyout:false,buyoutPrice:0,parts:[{name:'Велосипед (по платежам)',weekly:m,weeks:null}],auto:true});r.termFrom=D}
 /* ставка прошлого периода: самая частая сумма фактических платежей текущего периода (платежи хранят свои суммы), иначе текущая ставка */
 function oldRateGuess(r){const m=new Map();r.payments.filter(p=>p.date>=cs(r)&&p.date<=today()&&+p.amount>0).forEach(p=>m.set(+p.amount,(m.get(+p.amount)||0)+1));let best=0,n=0;m.forEach((c,a)=>{if(c>n){n=c;best=a}});return best||weekAmt(normRental({parts:r.parts}),0)}
 const curK=r=>Math.max(0,Math.floor((dnum(today())-dnum(cs(r)))/7));
@@ -381,7 +386,9 @@ function editRentalDlg(id){const r=db.rentals.find(x=>x.id===id),H=(r.terms||[])
  <div id="nBuyBox" style="display:${r.buyout?'block':'none'}"><div class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="${r.buyout&&r.buyoutPrice||''}" placeholder="= сумма по позициям" oninput="this.dataset.auto='';bcalc();rinfo()"></div></div><div class="muted" id="nHint"></div><div class="muted">Для выкупа укажите число недель в позиции.</div></div>
  <label>Залог, ₽</label><input id="nD" type="number" value="${r.deposit}"><div class="card" style="background:#eef6f1;margin:8px 0" id="nInfo"></div><div class="muted">Долг и график пересчитаются; платежи сохраняются.</div>${batField(bike(r.bikeId),'e')}`,
  v=>{const buy=document.getElementById('nBuy').checked,D=v('nTc');if(H)r.termFrom=v('nS');else r.start=v('nS');
-  const tc=document.getElementById('tChBox');if(tc.style.display!=='none'&&D&&dnum(D)>dnum(cs(r))){const ob=v('nOT')==='1',or=+v('nOR')||weekAmt(r,0),op=ob?(+v('nOP')||r.buyoutPrice||0):0;
+  const tc=document.getElementById('tChBox'),nw=weekAmt(normRental({parts:readParts()}),0),chg=buy!==!!r.buyout||nw!==weekAmt(r,0);
+  if(tc.style.display==='none'&&chg){const W=dstr(dnum(cs(r))+7*curK(r));if(dnum(W)>dnum(cs(r))){(r.terms=r.terms||[]).push({from:cs(r),to:W,buyout:!!r.buyout,buyoutPrice:r.buyoutPrice||0,parts:JSON.parse(JSON.stringify(r.parts))});r.termFrom=W}}
+  else if(tc.style.display!=='none'&&D&&dnum(D)>dnum(cs(r))){const ob=v('nOT')==='1',or=+v('nOR')||weekAmt(r,0),op=ob?(+v('nOP')||r.buyoutPrice||0):0;
    const same=or===weekAmt(r,0),parts=same?JSON.parse(JSON.stringify(r.parts)):[{name:'Велосипед',weekly:or,weeks:ob?Math.max(1,Math.ceil(op/or)):null}];if(!ob)parts.forEach(p=>p.weeks=null);
    (r.terms=r.terms||[]).push({from:cs(r),to:D,buyout:ob,buyoutPrice:op,parts});r.termFrom=D}
   Object.assign(r,{parts:readParts(),deposit:+v('nD')||0,buyout:buy,buyoutPrice:buy?+v('nP'):0});normRental(r);const b=db.bikes.find(x=>x.id===r.bikeId);if(b&&!r.end)b.status=buy?'buyout':'rent';if(b)batRead(b,'e');if(buy)checkBuyout(r)},rentErr);rinfo();bcalc()}
@@ -440,7 +447,7 @@ function backup(){const ph={};PHOTOS.forEach((v,k)=>ph[k]=v);const json=JSON.str
 function restore(f){if(!f)return;f.text().then(async t=>{const d=JSON.parse(t);if(!Array.isArray(d.bikes)||!Array.isArray(d.clients)||!Array.isArray(d.rentals))throw 0;
  if(!confirm('Заменить текущие данные?'+(d.photoData?' Фото в копии: '+Object.keys(d.photoData).length:'')))return;const ph=d.photoData||{};delete d.photoData;
  for(const id of [...PHOTOS.keys()])await delPhoto(id);for(const [k,v] of Object.entries(ph))await putPhoto(k,v);
- db=d;db.settings=db.settings||{penaltyPerDay:0,defaultWeekly:3500};db.bikes.forEach(b=>{b.tracker=b.tracker||'';b.photos=b.photos||[];for(const k of ['brand','battery1','battery2'])b[k]=b[k]||''});db.clients.forEach(c=>c.photos=c.photos||[]);db.rentals.forEach(r=>{normRental(r);if(!Array.isArray(r.terms))r.terms=[]});save();render();alert('Восстановлено')}).catch(e=>{console.warn(e);alert('Неверный файл')})}
+ db=d;db.settings=db.settings||{penaltyPerDay:0,defaultWeekly:3500};db.bikes.forEach(b=>{b.tracker=b.tracker||'';b.photos=b.photos||[];for(const k of ['brand','battery1','battery2'])b[k]=b[k]||''});db.clients.forEach(c=>c.photos=c.photos||[]);db.rentals.forEach(r=>{normRental(r);if(!Array.isArray(r.terms))r.terms=[];autoFix(r)});save();render();alert('Восстановлено')}).catch(e=>{console.warn(e);alert('Неверный файл')})}
 /* ===== Импорт с объединением (bike-import-v1) ===== */
 const str=x=>x==null?'':String(x).trim();const numv=x=>x===''||x==null||isNaN(+x)?0:+x;
 const normPhone=p=>str(p).replace(/\D/g,'').replace(/^8(\d{10})$/,'7$1');

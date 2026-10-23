@@ -91,7 +91,7 @@ details.sec>summary h2{display:inline}details.sec>summary::after{content:' ▸';
 .cd.has{background:#eef6f1}.cd.today{border:2px solid #1f6f4a}.cd.sel{background:#1f6f4a;color:#fff}.cd.sel i,.cd.sel small{color:#fff}
 </style>
 <script>
-const KEY='ebikeRental.v2';const APP_VER='v14';
+const KEY='ebikeRental.v2';const APP_VER='v15';
 const TABS=[['dash','Сводка'],['overdue','Просрочки'],['rentals','Аренды'],['bikes','Велосипеды'],['clients','Арендаторы'],['data','Данные']];
 const ST={free:'свободен',rent:'в аренде',buyout:'выкуп',owned:'выкуплен',repair:'ремонт'};
 const ST_CLS={free:'free',rent:'rent',buyout:'buyout',owned:'owned',repair:'repair'};
@@ -146,6 +146,8 @@ function normRental(r){if(!Array.isArray(r.parts)||!r.parts.length)r.parts=[{nam
  r.parts=r.parts.map(p=>({name:String(p.name??'').trim()||'Позиция',weekly:+p.weekly||0,weeks:+p.weeks>0?Math.floor(+p.weeks):null}));return syncLegacy(r)}
 /* История условий: r.terms = [{from,to,buyout,buyoutPrice,parts}] — прошлые периоды (до смены типа); текущие условия — в самой аренде, действуют с cs(r)=r.termFrom||r.start */
 const cs=r=>r.termFrom||r.start;
+/* ставка прошлого периода: самая частая сумма фактических платежей текущего периода (платежи хранят свои суммы), иначе текущая ставка */
+function oldRateGuess(r){const m=new Map();r.payments.filter(p=>p.date>=cs(r)&&p.date<=today()&&+p.amount>0).forEach(p=>m.set(+p.amount,(m.get(+p.amount)||0)+1));let best=0,n=0;m.forEach((c,a)=>{if(c>n){n=c;best=a}});return best||weekAmt(normRental({parts:r.parts}),0)}
 const curK=r=>Math.max(0,Math.floor((dnum(today())-dnum(cs(r)))/7));
 const curWeekly=r=>weekAmt(r,curK(r));
 /* следующая смена суммы недели (когда позиция заканчивается) */
@@ -346,7 +348,7 @@ function rentalDlg(){
 /* тип: сегмент «Аренда | Выкуп», скрытый чекбокс #nBuy синхронизирован */
 const typeSeg=buy=>`<input type="checkbox" id="nBuy" hidden ${buy?'checked':''}><label>Тип</label><div class="seg" id="tSeg"><button type="button" id="tRent" class="${buy?'':'on'}" aria-pressed="${!buy}" onclick="setType(false)">Аренда</button><button type="button" id="tBuy" class="${buy?'on':''}" aria-pressed="${buy}" onclick="setType(true)">Выкуп</button></div>`;
 function setType(buy){const g=id=>document.getElementById(id);g('nBuy').checked=buy;g('tRent').classList.toggle('on',!buy);g('tBuy').classList.toggle('on',buy);g('tRent').setAttribute('aria-pressed',!buy);g('tBuy').setAttribute('aria-pressed',buy);
- g('nBuyBox').style.display=buy?'block':'none';const tc=g('tChBox');if(tc)tc.style.display=(buy?1:0)!=+tc.dataset.orig?'block':'none';document.querySelectorAll('#parts .pwk').forEach(e=>{if(!buy)e.value='';e.closest('div').style.display=''});
+ g('nBuyBox').style.display=buy?'block':'none';const tc=g('tChBox');if(tc&&!tc.dataset.fix)tc.style.display=(buy?1:0)!=+tc.dataset.orig?'block':'none';document.querySelectorAll('#parts .pwk').forEach(e=>{if(!buy)e.value='';e.closest('div').style.display=''});
  if(buy){const w=g('nWk');if(w&&!w.value)w.focus()}bcalc();rinfo()}
 /* цена выкупа: если пусто (или заполнена автоматически) = сумма начислений по позициям */
 function autoPrice(){const g=id=>document.getElementById(id),P=g('nP');if(!P||!g('nBuy').checked)return;if(P.value===''||P.dataset.auto){const r=normRental({start:today(),parts:readParts()}),N=maxWeeks(r);let t=0;for(let k=0;k<N;k++)t+=weekAmt(r,k);P.value=t||'';P.dataset.auto=t?'1':''}}
@@ -371,12 +373,17 @@ function markWeeksDlg(id){const r=db.rentals.find(x=>x.id===id),c=calc(r),due=c.
  v=>+v('mN')>=1?'':'Укажите число недель')}
 function editRentalDlg(id){const r=db.rentals.find(x=>x.id===id),H=(r.terms||[]).length;
  openDlg(`<h2 id="h2edit">Изменить аренду</h2><div class="row"><div><label>${H?'Текущие условия с':'Дата начала'}</label><input id="nS" type="date" value="${cs(r)}" oninput="rinfo()" onchange="rinfo()"></div></div>
- ${typeSeg(r.buyout)}<div id="tChBox" data-orig="${r.buyout?1:0}" style="display:none" class="card"><label>Смена типа действует с</label><input id="nTc" type="date" value="${today()}"><div class="muted">Платежи и начисления до этой даты остаются по прежним условиям (${r.buyout?'выкуп':'аренда'}).</div></div>
+ ${typeSeg(r.buyout)}<button type="button" class="btn sm sec" id="fixBtn" onclick="const t=document.getElementById('tChBox');t.dataset.fix=1;t.style.display='block';this.style.display='none'">↺ Условия до даты (исправить прошлое)</button>
+ <div id="tChBox" data-orig="${r.buyout?1:0}" style="display:none" class="card"><label>Новые условия действуют с</label><input id="nTc" type="date" value="${today()}">
+ <div class="row"><div><label>Тип до смены</label><select id="nOT"><option value="0" ${r.buyout?'':'selected'}>аренда</option><option value="1" ${r.buyout?'selected':''}>выкуп</option></select></div><div><label>Ставка до смены, ₽/нед</label><input id="nOR" type="number" min="1" value="${oldRateGuess(r)}"></div><div><label>Цена выкупа до смены</label><input id="nOP" type="number" value="${r.buyout?r.buyoutPrice||'':''}" placeholder="для выкупа"></div></div>
+ <div class="muted">Недели и платежи до этой даты считаются по этим условиям (ставка подставлена по фактическим платежам); с даты — по форме ниже.</div></div>
  ${partsEditor(r.parts)}
  <div id="nBuyBox" style="display:${r.buyout?'block':'none'}"><div class="row"><div><label>Цена выкупа, ₽</label><input id="nP" type="number" value="${r.buyout&&r.buyoutPrice||''}" placeholder="= сумма по позициям" oninput="this.dataset.auto='';bcalc();rinfo()"></div></div><div class="muted" id="nHint"></div><div class="muted">Для выкупа укажите число недель в позиции.</div></div>
  <label>Залог, ₽</label><input id="nD" type="number" value="${r.deposit}"><div class="card" style="background:#eef6f1;margin:8px 0" id="nInfo"></div><div class="muted">Долг и график пересчитаются; платежи сохраняются.</div>${batField(bike(r.bikeId),'e')}`,
  v=>{const buy=document.getElementById('nBuy').checked,D=v('nTc');if(H)r.termFrom=v('nS');else r.start=v('nS');
-  if(buy!==!!r.buyout&&D&&dnum(D)>dnum(cs(r))){(r.terms=r.terms||[]).push({from:cs(r),to:D,buyout:!!r.buyout,buyoutPrice:r.buyoutPrice||0,parts:JSON.parse(JSON.stringify(r.parts))});r.termFrom=D}
+  const tc=document.getElementById('tChBox');if(tc.style.display!=='none'&&D&&dnum(D)>dnum(cs(r))){const ob=v('nOT')==='1',or=+v('nOR')||weekAmt(r,0),op=ob?(+v('nOP')||r.buyoutPrice||0):0;
+   const same=or===weekAmt(r,0),parts=same?JSON.parse(JSON.stringify(r.parts)):[{name:'Велосипед',weekly:or,weeks:ob?Math.max(1,Math.ceil(op/or)):null}];if(!ob)parts.forEach(p=>p.weeks=null);
+   (r.terms=r.terms||[]).push({from:cs(r),to:D,buyout:ob,buyoutPrice:op,parts});r.termFrom=D}
   Object.assign(r,{parts:readParts(),deposit:+v('nD')||0,buyout:buy,buyoutPrice:buy?+v('nP'):0});normRental(r);const b=db.bikes.find(x=>x.id===r.bikeId);if(b&&!r.end)b.status=buy?'buyout':'rent';if(b)batRead(b,'e');if(buy)checkBuyout(r)},rentErr);rinfo();bcalc()}
 function closeDlg(id){const r=db.rentals.find(x=>x.id===id),b=bike(r.bikeId),c=calc(r);
  openDlg(`<h2>Завершить аренду</h2>${c.debt?`<p class="debt">Внимание: долг ${rub(c.debt)} (+ пеня ${rub(c.penalty)})</p>`:''}<label>Дата возврата</label><input id="cE" type="date" value="${today()}"><label>Пробег при возврате, км</label><input id="cKm" type="number" value="${b.mileage}">

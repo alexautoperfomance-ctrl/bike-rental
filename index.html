@@ -25,13 +25,13 @@ input,select,textarea{width:100%;padding:9px;border:1px solid #ccd;border-radius
 table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{padding:6px;border-bottom:1px solid #eee;text-align:left}
 .tw{overflow-x:auto}.big{font-size:1.4rem;font-weight:700}.muted{color:#778;font-size:.85rem}
 .stats{display:flex;gap:12px;flex-wrap:wrap}.stats>div{flex:1 1 120px;background:#eef6f1;border-radius:8px;padding:10px}
-dialog{border:0;border-radius:12px;width:min(480px,95vw);padding:16px}dialog::backdrop{background:#0006}
+dialog{border:0;border-radius:12px;width:min(480px,95vw);padding:16px}dialog:focus{outline:none}dialog::backdrop{background:#0006}
 h2{font-size:1.1rem;margin:4px 0 10px}
 header{padding-top:calc(12px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + env(safe-area-inset-right))}nav{top:calc(44px + env(safe-area-inset-top))}main{padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right));padding-bottom:calc(24px + env(safe-area-inset-bottom))}</style></head><body>
 <header style="display:flex;align-items:center;justify-content:space-between;gap:8px"><h1>⚡🚲 Аренда электровелосипедов</h1><button id="eye" onclick="toggleMask()" title="Скрыть/показать суммы" style="background:#ffffff26;border:0;color:#fff;font-size:1.25rem;border-radius:8px;padding:4px 10px;cursor:pointer;flex:none">👁</button></header>
 <div id="viewer" onclick="this.style.display='none'" style="display:none;position:fixed;inset:0;background:#000e;z-index:99;align-items:center;justify-content:center;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)"><img id="viewerImg" style="max-width:100%;max-height:100%"></div>
 <nav id="nav"></nav><main id="app"></main>
-<dialog id="dlg"><form method="dialog" id="dform"></form></dialog>
+<dialog id="dlg" autofocus tabindex="-1"><form method="dialog" id="dform"></form></dialog>
 <style>.buyout{background:#dde7ff;color:#2741a0}.owned{background:#e6e6e6;color:#444}.debt{color:#c0392b;font-weight:700}tr.od td{background:#fde8e6}.paid{color:#16683f}.ph{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}.ph div{position:relative}.ph img{width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer}.thumb{width:36px;height:36px;object-fit:cover;border-radius:5px;cursor:pointer;vertical-align:middle;margin-right:4px}.ph button{position:absolute;top:-7px;right:-7px;border:0;border-radius:50%;background:#c0392b;color:#fff;width:22px;height:22px;cursor:pointer;line-height:1}</style>
 <style>/* ===== компактный режим для телефона ===== */
 details>summary{cursor:pointer;list-style:none}details>summary::-webkit-details-marker{display:none}
@@ -91,7 +91,7 @@ details.sec>summary h2{display:inline}details.sec>summary::after{content:' ▸';
 .cd.has{background:#eef6f1}.cd.today{border:2px solid #1f6f4a}.cd.sel{background:#1f6f4a;color:#fff}.cd.sel i,.cd.sel small{color:#fff}
 </style>
 <script>
-const KEY='ebikeRental.v2';const APP_VER='v16';
+const KEY='ebikeRental.v2';const APP_VER='v17';
 const TABS=[['dash','Сводка'],['overdue','Просрочки'],['rentals','Аренды'],['bikes','Велосипеды'],['clients','Арендаторы'],['data','Данные']];
 const ST={free:'свободен',rent:'в аренде',buyout:'выкуп',owned:'выкуплен',repair:'ремонт'};
 const ST_CLS={free:'free',rent:'rent',buyout:'buyout',owned:'owned',repair:'repair'};
@@ -293,7 +293,7 @@ function rentalView(r){if(!r)return go('rentals');const c=calc(r),b=bike(r.bikeI
  <details class="card sec" id="rvSch"><summary><h2>График (${c.sch.length})</h2></summary><div class="lines">${c.sch.map((x,i)=>{const st=x.status==='оплачено'?['paid','оплачено']:x.status==='долг'?['debt','долг']:['wait','ожидает'];return `<details class="ln sch ${st[0]}"><summary><span class="lc n">${i+1}${x.old?'ᵛ':''}</span><span class="lc d">${fd(x.due)}</span><span class="lc a">${rub(x.amount)}</span><span class="st ${st[0]}">${st[1]}</span></summary><div class="det">Неделя ${i+1} · срок ${fd(x.due)} · начислено ${rub(x.amount)} · оплачено ${rub(x.paid)}${x.status==='долг'?' · не оплачено '+rub(x.amount-x.paid):''}</div></details>`}).join('')}</div></details>`}
 const dlg=document.getElementById('dlg'),dform=document.getElementById('dform');
 const val=k=>{const e=document.getElementById(k);return e?e.value:''};
-function openDlg(html,ok,validate){dform.onsubmit=e=>{if(validate&&e.submitter&&e.submitter.value==='ok'){const m=validate(val);if(m){e.preventDefault();alert(m)}}};dform.innerHTML=html+`<div><button class="btn" value="ok" id="dOk">Сохранить</button><button class="btn sec" value="cancel" formnovalidate>Отмена</button></div>`;dlg.returnValue='';dlg.showModal();dlg.onclose=()=>{if(dlg.returnValue==='ok'){ok(k=>document.getElementById(k).value);save();render()}}}
+function openDlg(html,ok,validate){dform.onsubmit=e=>{if(validate&&e.submitter&&e.submitter.value==='ok'){const m=validate(val);if(m){e.preventDefault();alert(m)}}};dform.innerHTML=html+`<div><button class="btn" value="ok" id="dOk">Сохранить</button><button class="btn sec" value="cancel" formnovalidate>Отмена</button></div>`;dlg.returnValue='';try{document.activeElement&&document.activeElement.blur()}catch(e){}dlg.showModal();{const a=document.activeElement;if(a&&a!==dlg&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))a.blur()}dlg.onclose=()=>{if(dlg.returnValue==='ok'){ok(k=>document.getElementById(k).value);save();render()}}}
 /* ===== Общие блоки формы: велосипед (выбрать / новый / без) и параметры аренды ===== */
 const freeBikes=()=>db.bikes.filter(b=>b.status==='free');
 function bikeSection(allowNone){const fb=freeBikes(),mode=fb.length?'pick':'new';

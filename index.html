@@ -91,7 +91,7 @@ details.sec>summary h2{display:inline}details.sec>summary::after{content:' ▸';
 .cd.has{background:#eef6f1}.cd.today{border:2px solid #1f6f4a}.cd.sel{background:#1f6f4a;color:#fff}.cd.sel i,.cd.sel small{color:#fff}
 </style>
 <script>
-const KEY='ebikeRental.v2';const APP_VER='v25';
+const KEY='ebikeRental.v2';const APP_VER='v26';
 const TABS=[['dash','Сводка'],['overdue','Просрочки'],['rentals','Аренды'],['bikes','Велосипеды'],['clients','Арендаторы'],['docs','Договоры'],['data','Данные']];
 const ST={free:'свободен',rent:'в аренде',buyout:'выкуп',owned:'выкуплен',repair:'ремонт'};
 const ST_CLS={free:'free',rent:'rent',buyout:'buyout',owned:'owned',repair:'repair'};
@@ -491,7 +491,7 @@ function ctNew(rid){const r=db.rentals.find(x=>x.id===rid)||{},b=db.bikes.find(x
  CT.f={rid:rid||'',num:'',date:today(),city:'Новосибирск',cname:c.name||'',cbirth:'',cpass:'',cps:c.passport||'',cpi:'',cpd:'',cpk:'',caddr:'',cphone:c.phone||'',
   brand:b.brand||'',model:b.model||'',vin:b.vin||'',year:b.year||'',color:b.color||'',mileage:b.mileage||'',power:b.power||'',bnum:b.num||'',bat1:hasBat(b,1)?(b.battery1||'есть'):'',bat2:hasBat(b,2)?(b.battery2||'есть'):'',
   start:r.start||today(),term:'12 месяцев',weekly:r.weekly||(r.parts&&r.parts[0]&&r.parts[0].weekly)||db.settings.defaultWeekly||'',deposit:r.deposit||'',bwk:r.buyout?(r.weeks||''):'',bprice:r.buyout&&r.weeks?Math.round((r.buyoutPrice||0)/r.weeks):'',
-  price:r.buyoutPrice||'',pm1:false,pm2:false,pm3:false,first:'',inst:r.weekly||'',instN:r.weeks||'',bikeVal:150000,batVal:50000,act:{},kit:{},knote:{},keys:'',keysets:'',other:'',tact:{},dmgtxt:'',until:'',ccit:'Российская Федерация',cliv:''};CT.show=false}
+  price:r.buyoutPrice||'',pm1:false,pm2:false,pm3:false,first:'',inst:r.weekly||'',instN:r.weeks||'',bikeVal:150000,batVal:50000,act:{},kit:{},knote:{},keys:'',keysets:'',other:'',tact:{},dmgtxt:'',until:'',ccit:'Российская Федерация',cliv:'',cbplace:''};CT.show=false}
 function ctSet(k,v){CT.f[k]=v}
 function ctSet2(o,k,v){(CT.f[o]=CT.f[o]||{})[k]=v}
 function ctFreeBikes(){const busy=new Set(active().map(r=>r.bikeId));return orderBy(db.bikes.filter(b=>!busy.has(b.id)),b=>b.num)}
@@ -533,7 +533,7 @@ function ctActTpl(f){const inp=(k,l,t)=>`<div><label>${l}</label><input id="f_${
  tb=(k,v,t)=>`<button type="button" class="btn ${ta[k]===v?'':'sec'} actb" style="padding:4px 8px" onclick="ctSet2('tact','${k}',(CT.f.tact||{})['${k}']==='${v}'?'':'${v}');render()">${t}</button>`,
  row=(l,b)=>`<div style="display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap"><span style="flex:1 1 150px">${l}</span>${b}</div>`,lk=(f.kit||{}).lock,
  lb=(v,t)=>`<button type="button" class="btn ${lk===v?'':'sec'} actb" style="padding:4px 8px" onclick="ctSet2('kit','lock',CT.f.kit&&CT.f.kit.lock===${v}?null:${v});render()">${t}</button>`;
- return `<div class="card" id="secAct"><h2>Акт приёма-передачи</h2><div class="row">${inp('mileage','Пробег, км')}</div><h3>Техническое состояние</h3>${TACT.map(([k,l])=>row(l,tb(k,'ok','Исправно')+tb(k,'bad','Неисправно'))).join('')}${row('Повреждения',tb('dmg','yes','Есть')+tb('dmg','no','Нет'))}<div class="row">${inp('dmgtxt','Если повреждения есть — какие')}</div>
+ return `<div class="card" id="secAct"><h2>Акт приёма-передачи</h2><div class="row">${inp('mileage','Пробег, км')}</div><h3>Техническое состояние</h3>${TACT.map(([k,l])=>row(l,tb(k,'ok','Исправно')+tb(k,'bad','Неисправно'))).join('')}${row('Внешнее состояние (пластик, общее)',tb('dmg','no','Целое')+tb('dmg','yes','Повреждено'))}<div class="row">${inp('dmgtxt','Описание повреждений')}</div>
  <h3>Комплектация</h3><div class="muted">Аккумуляторов: ${[f.bat1,f.bat2].filter(Boolean).length||'не указано'} (из полей «Аккумулятор 1/2»)</div>${row('Замок велосипедный',lb(true,'Входит')+lb(false,'Не входит'))}<div class="row">${inp('keys','Ключи, шт.','number')}${inp('keysets','Комплектов','number')}</div><div class="row">${inp('other','Другое')}</div></div>`}
 
 function ctFill(){const d=document.getElementById('doc');if(d)d.innerHTML=ctDoc();return d}
@@ -552,11 +552,11 @@ function ctDocGen(){const f=CT.f,L=ll(),T0=CT.type,ip=T0==='ip',T=ip?'rent':T0,d
  const title=buy?'ДОГОВОР АРЕНДЫ ЭЛЕКТРОВЕЛОСИПЕДА С ПРАВОМ ВЫКУПА':dkp?'ДОГОВОР КУПЛИ-ПРОДАЖИ ЭЛЕКТРОВЕЛОСИПЕДА В РАССРОЧКУ':'ДОГОВОР АРЕНДЫ ЭЛЕКТРОВЕЛОСИПЕДА';
  const bats=[f.bat1,f.bat2].filter(Boolean),batTxt=bats.length?`${bats.length} шт.${bats.some(b=>b!=='есть')?' ('+bats.filter(b=>b!=='есть').map(esc).join('; ')+')':''}`:'________';
  const ipH=`ИНН ${bl(L.inn,12)}, ОГРНИП ${bl(L.ogrnip,15)}`;
- const partyA=ip?`Индивидуальный предприниматель ${esc(L.name)} («${esc(L.org)}»), ${ipH}`:`Гражданин РФ ${esc(L.name)}, дата рождения ${bl(L.birth,12)}, паспорт: ${bl(L.passport,30)}, адрес регистрации: ${bl(L.addr,30)}, телефон ${esc(L.phone)}`;
+ const partyA=ip?`ИП ${esc(L.name)}, ${ipH}`:`Гражданин РФ ${esc(L.name)}, дата рождения ${bl(L.birth,12)}, паспорт: ${bl(L.passport,30)}, адрес регистрации: ${bl(L.addr,30)}, телефон ${esc(L.phone)}`;
  const partyB=`${bl(f.cname,30)}, дата рождения ${bl(f.cbirth,12)}${f.cbplace?', место рождения: '+esc(f.cbplace):''}${f.ccit&&f.ccit!=='Российская Федерация'?', гражданство: '+esc(f.ccit):''}, паспорт: ${bl(passStr(f),30)}, адрес регистрации: ${bl(f.caddr,30)}, телефон ${bl(f.cphone,14)}`;
  let sec=0;const P=(h,t)=>`<p class="cl"><b>${++sec}. ${h}.</b> ${t}</p>`;
  const pay=ip?`безналично: ${f.pm1?'☑':'☐'} переводом на расчётный счёт ИП по реквизитам ниже; ${f.pm2?'☑':'☐'} по QR-коду (СБП); ${f.pm3?'☑':'☐'} банковской картой через терминал`:`наличными или переводом на банковскую карту ${dkp?'Продавца':'Арендодателя'} по номеру телефона ${esc(L.phone)}`;
- let o=`${ip?`<div class="org"><b>${esc(L.org)}</b><br>ИП ${esc(L.name)} · ${ipH}</div>`:''}<h3 class="c">${title}${f.num?' № '+esc(f.num):''}</h3><table class="hd"><tr><td>г. ${esc(f.city)}</td><td style="text-align:right">Дата заключения: ${dt}</td></tr></table>
+ let o=`<h3 class="c">${title}${f.num?' № '+esc(f.num):''}</h3><table class="hd"><tr><td>г. ${esc(f.city)}</td><td style="text-align:right">Дата заключения: ${dt}</td></tr></table>
  <p class="cl">${partyA}, далее «${A}», с одной стороны, и ${partyB}, далее «${B}», с другой стороны, заключили настоящий договор:</p>`;
  const subj=`электровелосипед ${bl([f.brand,f.model].filter(Boolean).join(' '),20)}, номер рамы/VIN: ${bl(f.vin,20)}, год ${bl(f.year,6)}, цвет ${bl(f.color,10)}, с аккумуляторами: ${batTxt}`;
  if(dkp){const rem=f.price&&f.first!==''?f.price-(+f.first||0):'';
@@ -573,7 +573,7 @@ function ctDocGen(){const f=CT.f,L=ll(),T0=CT.type,ip=T0==='ip',T=ip?'rent':T0,d
   o+=P('Обязанности Арендатора',`Пользоваться лично и бережно, соблюдать ПДД, заряжать только родным зарядным устройством. Не передавать, не продавать, не сдавать в залог, не разбирать и не менять детали и аккумуляторы. Хранить в закрытом месте, на замке. О ДТП, поломке или краже сообщать в течение 24 часов. По окончании договора вернуть Электровелосипед в течение 1 дня в том же состоянии с учётом нормального износа.`)}
  o+=P('Оценочная стоимость и ответственность',`Стороны оценили ${dkp?'Товар':'Электровелосипед'} в ${rubW(f.bikeVal)}, каждый аккумулятор — в ${rubW(f.batVal)}. При утрате, краже или уничтожении ${B} возмещает эту стоимость в течение 10 дней, при повреждении — стоимость ремонта. ${B} сам отвечает за вред другим людям и их имуществу (подробнее — Приложение № 2).`)
  +P('Заключительные условия',`Договор вступает в силу с момента подписания, составлен в двух экземплярах. Уведомления можно направлять по телефону и в мессенджерах. Споры решаются переговорами, а при недоговорённости — в суде по месту жительства ${Bg}.`);
- const rq=ip?[`<b>ИП ${esc(L.name)}</b>`,`«${esc(L.org)}»`,`ИНН ${bl(L.inn,12)}`,`ОГРНИП ${bl(L.ogrnip,15)}`,`Адрес: ${bl(L.uaddr,24)}`,`р/с ${bl(L.rs,20)}`,`${bl(L.bank,20)}`,`ИНН банка ${bl(L.binn,10)}, КПП ${bl(L.bkpp,9)}`,`БИК ${bl(L.bik,9)}`,`к/с ${bl(L.ks,20)}`,`Тел.: ${esc(L.phone)}`]:[esc(L.name),`Тел.: ${esc(L.phone)}`];
+ const rq=ip?[`<b>ИП ${esc(L.name)}</b>`,`ИНН ${bl(L.inn,12)}`,`ОГРНИП ${bl(L.ogrnip,15)}`,`Адрес: ${bl(L.uaddr,24)}`,`р/с ${bl(L.rs,20)}`,`${bl(L.bank,20)}`,`ИНН банка ${bl(L.binn,10)}, КПП ${bl(L.bkpp,9)}`,`БИК ${bl(L.bik,9)}`,`к/с ${bl(L.ks,20)}`,`Тел.: ${esc(L.phone)}`]:[esc(L.name),`Тел.: ${esc(L.phone)}`];
  const sigT=(a,b)=>`<table class="rq"><tr><td>${a}</td><td>${b}</td></tr></table>`;
  o+=`<div class="blk">${ip?'<p class="cl"><b>Реквизиты и подписи сторон</b></p>':''}${sigT(`${A.toUpperCase()}<br>${rq.join('<br>')}<div class="sl">Подпись: ____________________</div>`,`${B.toUpperCase()}<br>${esc(f.cname)||'&nbsp;'}<br>Тел.: ${esc(f.cphone)||'______________'}<div class="sl">Подпись: ____________________</div>`)}</div>`;
  // Приложение 2: ответственность
@@ -651,19 +651,51 @@ function bplaceParse(t){const i=t.search(/\d{2}[.,]\d{2}[.,](19|20)\d{2}\s*$/m),
  const lc=w=>w.toLowerCase().replace(/(^|[\s-])([а-яё])/g,(m,a,b)=>a+b.toUpperCase());
  let ob=o?lc(o[1]):'';if(c&&o&&c[2].slice(0,4)===o[1].slice(0,4)&&/АЯ$/.test(o[1]))ob=lc(c[2]).replace(/(ск|цк)?$/,m=>m?m+'ая':'ская').replace(/скская$/,'ская');
  return [c?`${c[1].toLowerCase()} ${lc(c[2])}`:'',o?`${ob} ${o[2].toLowerCase().replace(/^обл$/,'обл.')}`:''].filter(Boolean).join(', ')}
-async function ocrRunMany(inp){const files=[...(inp.files||[])].slice(0,3);inp.value='';ocrMenu(false);if(!files.length)return;
- const f=CT.f;let got=0;try{ocrSt('Загрузка распознавания…',0);await ocrLib();
-  if(!OCRW)OCRW=await Tesseract.createWorker(['rus','eng'],1,{logger:m=>{if(m.status==='recognizing text')ocrSt(`Распознаю фото ${CUR+1} из ${files.length}…`,Math.round(m.progress*100));else ocrSt('Загрузка (первый раз дольше)…',Math.round((m.progress||0)*100))}});
-  for(CUR=0;CUR<files.length;CUR++){const file=files[CUR],t1=(await OCRW.recognize(await ocrImg(file,false))).data.text;
-   let r=passParse(t1);const isMain=!!(r.name||r.ser||r.code||/<<|PNRUS/i.test(t1.replace(/\s/g,'')));
-   if(isMain){if(!r.ser){try{const r2=passParse((await OCRW.recognize(await ocrImg(file,true))).data.text);for(const k in r2)if(!r[k])r[k]=r2[k]}catch(e){}}
-    if(r.name){f.cname=r.name;got++}if(r.birth){f.cbirth=r.birth;got++}if(r.ser||r.num){f.cps=`${r.ser||'____'} ${r.num||'______'}`;got++}if(r.issuer){f.cpi=r.issuer;got++}if(r.idate){f.cpd=r.idate;got++}if(r.code){f.cpk=r.code;got++}
-    const bp=bplaceParse(t1);if(bp){f.cbplace=bp;got++}if(/RUS|РОССИЙСКАЯ/i.test(t1)){f.ccit='Российская Федерация'}}
-   const a=/Зарегистр|Место жительства|ЖИТЕЛЬСТВ/i.test(t1)||!isMain?regParse(t1):'';if(a&&a.length>8){f.caddr=a;got++}}
-  if(!got)throw new Error('empty');render();ocrSt(`✓ Распознано (${files.length} фото) — проверьте поля. Можно добавить ещё фото той же кнопкой.`);
- }catch(e){render();ocrSt('Не удалось распознать. Сфотографируйте ровно, без бликов, при хорошем свете, или введите вручную.')}}
 let CUR=0;
 function ocrMenu(on){const m=document.getElementById('docMenu');if(m)m.style.display=on==null?(m.style.display==='none'?'flex':'none'):(on?'flex':'none')}
+/* ===== v26: надёжное распознавание паспорта (MRZ с поворотами) ===== */
+const MRZD={O:'0',Q:'0',D:'0',I:'1',L:'1',Z:'2',S:'5',B:'8',G:'6',T:'7'};
+function mrzFix2(l){l=l.replace(/R[UV][S5]/,'RUS');const i=l.indexOf('RUS');if(i<0)return l;const d=s=>s.replace(/[A-Z]/g,c=>MRZD[c]||c);
+ return d(l.slice(0,i))+'RUS'+d(l.slice(i+3,i+10))+l.slice(i+10,i+11)+d(l.slice(i+11))}
+let OCRM=null;
+async function ocrMrzWorker(){if(!OCRM){OCRM=await Tesseract.createWorker('eng',1,{logger:()=>{}});await OCRM.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<',tessedit_pageseg_mode:'6'})}return OCRM}
+async function imgOf(file){return await new Promise((ok,no)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);ok(i)};i.onerror=()=>{URL.revokeObjectURL(u);no(new Error('img'))};i.src=u})}
+function cropRot(img,rot,y0,y1,maxW){const W=img.naturalWidth,H=img.naturalHeight,rw=rot%180?H:W,rh=rot%180?W:H,c=document.createElement('canvas'),k=Math.min(3,(maxW||2400)/rw);
+ const t=document.createElement('canvas');t.width=Math.round(rw*k);t.height=Math.round(rh*k);const x=t.getContext('2d');x.translate(t.width/2,t.height/2);x.rotate(rot*Math.PI/180);x.scale(k,k);x.drawImage(img,-W/2,-H/2);
+ const sy=Math.round(t.height*y0),sh=Math.round(t.height*(y1-y0));c.width=t.width;c.height=sh;const cx=c.getContext('2d');cx.filter='grayscale(1) contrast(1.8)';cx.drawImage(t,0,sy,t.width,sh,0,0,t.width,sh);return c}
+async function mrzScan(file){const img=await imgOf(file),w=await ocrMrzWorker();let best=null;
+ for(const rot of [0,180,90,270])for(const [a,b] of [[.62,1],[.4,1],[0,1]]){const t=(await w.recognize(cropRot(img,rot,a,b))).data.text;const r=mrzParse(t.split('\n').map(l=>/RUS/.test(l)&&!/^\s*[PР]/.test(l)&&/^\S{9}/.test(l.replace(/\s/g,''))?mrzFix2(l.replace(/\s/g,'')):l).join('\n'));
+  const sc=(r.ok?10:0)+(r.name?3:0)+(r.ser?2:0)+(r.code?1:0);if(sc&&(!best||sc>best.sc))best={...r,sc,rot};if(best&&best.sc>=15)return best}
+ return best}
+const cleanTxt=s=>String(s||'').replace(/[^А-ЯЁа-яё0-9 .,\-/№«»"()]/g,' ').replace(/\s+[^\sА-ЯЁа-яё0-9№]+(?=\s|$)/g,' ').replace(/(^|\s)[ъьЪЬ](?=\s|$)/g,' ').replace(/\s+/g,' ').replace(/^[\s.,-]+|[\s.,-]+$/g,'').trim();
+const MONR='января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря';
+function addrClean(a){a=' '+String(a||'')+' ';
+ a=a.replace(/ЗАРЕГИСТРИРОВАН[А-ЯЁ]*\.?|Место жительства\.?|Зарегистрирован[а-яё]*\.?/gi,' ').replace(new RegExp(`\\d{1,2}\\s*(${MONR})\\s*\\d{4}\\s*г?\\.?`,'gi'),' ').replace(/\d{2}[.,]\d{2}[.,]\d{4}/g,' ');
+ a=a.replace(/[^А-ЯЁа-яё0-9 .,\-/№]/g,' ').replace(/\s+/g,' ');
+ const keep=/^(г|д|кв|ул|п|с|пос|рп|р\.п|мкр|пр|пр-т|пер|обл|р-н|корп|стр|ш|туп|пл|наб|б-р|х|дер|ст|тер)\.?,?$/i;
+ a=a.split(' ').filter(w=>w&&(w.length>=3||/\d/.test(w)||keep.test(w))).join(' ');
+ return cleanTxt(a)}
+function goodDate(s){const m=/^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s||'');return !!m&&+m[1]>=1&&+m[1]<=31&&+m[2]>=1&&+m[2]<=12&&+m[3]>1920&&+m[3]<2100}
+function ocrPut(f,k,v,q){if(v==null||v==='')return 0;f._q=f._q||{};if((f._q[k]||0)>q&&f[k])return 0;f[k]=v;f._q[k]=q;return 1}
+async function ocrRunMany(inp){const files=[...(inp.files||[])].slice(0,3);inp.value='';ocrMenu(false);if(!files.length)return;
+ const f=CT.f,got={};try{ocrSt('Загрузка распознавания…',0);await ocrLib();
+  if(!OCRW)OCRW=await Tesseract.createWorker(['rus','eng'],1,{logger:m=>{if(m.status==='recognizing text')ocrSt(`Распознаю фото ${CUR+1} из ${files.length}…`,Math.round(m.progress*100));else ocrSt('Загрузка (первый раз дольше)…',Math.round((m.progress||0)*100))}});
+  const put=(k,v,q)=>{if(ocrPut(f,k,v,q))got[k]=1};
+  for(CUR=0;CUR<files.length;CUR++){const file=files[CUR];ocrSt(`Ищу строку MRZ на фото ${CUR+1} из ${files.length}…`);
+   let m=null;try{m=await mrzScan(file)}catch(e){}
+   const rot=m?m.rot:0,img=await imgOf(file),t1=(await OCRW.recognize(cropRot(img,rot,0,1,2200))).data.text;
+   const r=passParse(t1),isMain=!!(m||r.code||r.ser||/ПАСПОРТ|Фамилия|Дата рождения/i.test(t1));
+   const U=t1.toUpperCase().replace(/Ё/g,'Е'),nsc=n=>{if(!n)return -1;const w=n.split(' ');if(w.length<2)return 0;return w.reduce((a,x)=>a+(x.length>=3?1:0)+(U.includes(x.toUpperCase().replace(/Ё/g,'Е'))?3:0),0)+(w.length===3?1:0)};
+   const cp=w=>w?w[0].toUpperCase()+w.slice(1).toLowerCase():'';const vars=n=>{if(!n)return [];n=n.split(' ').filter(w=>w.length>1).join(' ');const out=[n],w=n.split(' ');if(w.length===2){const x=w[1];for(let i=2;i<x.length-3;i++){if('СКЛЦЕ'.includes(x[i].toUpperCase()))out.push(w[0]+' '+cp(x.slice(0,i))+' '+cp(x.slice(i+1)));out.push(w[0]+' '+cp(x.slice(0,i))+' '+cp(x.slice(i)))}}return out};
+   {const c=[...vars(m&&m.name),...vars(r.name)].sort((a,b)=>nsc(b)-nsc(a))[0];if(c&&nsc(c)>=4)put('cname',c,nsc(c)>=9?3:2)}
+   if(m){const q=m.ok?3:2;if(goodDate(m.birth))put('cbirth',m.birth,q);if(m.ser&&m.num)put('cps',`${m.ser} ${m.num}`,q);else if(m.num)put('cps',m.num,1);if(goodDate(m.idate))put('cpd',m.idate,q);put('cpk',m.code,q);put('ccit','Российская Федерация',q)}
+   if(isMain){if(goodDate(r.birth))put('cbirth',r.birth,1);if(r.ser&&r.num)put('cps',`${r.ser} ${r.num}`,1);if(goodDate(r.idate)&&r.idate!==f.cbirth)put('cpd',r.idate,1);if(r.code)put('cpk',r.code,1);
+    if(r.issuer){let iv=cleanTxt(r.issuer);if(/\sПО\s+[А-ЯЁ]+(ОЙ|ЕЙ)$/i.test(iv)&&/ОБЛАСТ/i.test(t1))iv+=' ОБЛАСТИ';else if(/\sПО\s+[А-ЯЁ]+(ОМУ|ЕМУ)$/i.test(iv)&&/КРА/i.test(t1))iv+=' КРАЮ';put('cpi',iv,2)}const bp=bplaceParse(t1);if(bp)put('cbplace',bp,2)}
+   if(/Зарегистр|Место жительства|ЖИТЕЛЬСТВ/i.test(t1)||!isMain){const a=addrClean(regParse(t1));if(a.length>8)put('caddr',a,2)}}
+  const N={cname:'ФИО',cbirth:'дата рождения',cbplace:'место рождения',cps:'серия/номер',cpi:'кем выдан',cpd:'дата выдачи',cpk:'код',caddr:'адрес',ccit:'гражданство'},miss=Object.keys(N).filter(k=>!f[k]&&k!=='ccit');
+  if(!Object.keys(got).length)throw new Error('empty');render();
+  ocrSt(`✓ Распознано: ${Object.keys(got).map(k=>N[k]).filter(Boolean).join(', ')}.${miss.length?' Не найдено: '+miss.map(k=>N[k]).join(', ')+' — впишите вручную или добавьте фото.':''} Проверьте поля.`);
+ }catch(e){render();ocrSt('Не удалось распознать. Сфотографируйте разворот ровно, целиком (с нижними строками «<<<»), без бликов, или введите вручную.')}}
 /* ===== v19: предпросмотр A4 ===== */
 document.head.insertAdjacentHTML('beforeend','<style>'+DOCCSS.split('@media')[0].replace(/#doc/g,'.pv')+`#pvOv{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:1000;background:#777}#pvScroll{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:calc(10px + env(safe-area-inset-top)) 0 calc(90px + env(safe-area-inset-bottom))}#pvBar{position:fixed;left:0;right:0;bottom:0;z-index:1001;display:flex;gap:8px;padding:8px calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));background:#222;box-shadow:0 -2px 8px #0008}#pvBar .btn{flex:1;min-height:48px;font-size:16px;margin:0;padding:8px 4px}#pvPages{transform-origin:0 0;width:794px}.a4{width:794px;height:1123px;box-sizing:border-box;padding:57px 57px;margin:0 auto 14px;background:#fff;box-shadow:0 2px 8px #0006;overflow:hidden}.a4 .pv{padding:0}</style>`);
 function ctPreview(){const html=ctDoc(),ov=document.createElement('div');ov.id='pvOv';ov.className='noprint';
@@ -736,9 +768,9 @@ const TACT=[['brakes','Тормоза'],['light','Освещение'],['horn','
 function wq(el,n){return [...el.getElementsByTagNameNS(WNS,n)]}
 function ptxt(p){return wq(p,'t').map(t=>t.textContent).join('')}
 function hasBd(p){const pp=wq(p,'pPr')[0];return !!(pp&&wq(pp,'pBdr').length)}
-function mkRun(doc,text,sz,bold,font){const r=doc.createElementNS(WNS,'w:r'),pr=doc.createElementNS(WNS,'w:rPr'),f=doc.createElementNS(WNS,'w:rFonts');const fn=font||'Times New Roman';['ascii','hAnsi','cs','eastAsia'].forEach(a=>f.setAttributeNS(WNS,'w:'+a,fn));pr.appendChild(f);if(bold)pr.appendChild(doc.createElementNS(WNS,'w:b'));const s=doc.createElementNS(WNS,'w:sz');s.setAttributeNS(WNS,'w:val',String(sz||22));pr.appendChild(s);r.appendChild(pr);const t=doc.createElementNS(WNS,'w:t');t.setAttribute('xml:space','preserve');t.textContent=text;r.appendChild(t);return r}
+function mkRun(doc,text,sz,bold,font){const r=doc.createElementNS(WNS,'w:r'),pr=doc.createElementNS(WNS,'w:rPr'),f=doc.createElementNS(WNS,'w:rFonts');const fn=font||'Times New Roman';['ascii','hAnsi','cs','eastAsia'].forEach(a=>f.setAttributeNS(WNS,'w:'+a,fn));pr.appendChild(f);if(bold)pr.appendChild(doc.createElementNS(WNS,'w:b'));const s=doc.createElementNS(WNS,'w:sz');s.setAttributeNS(WNS,'w:val',String(sz||22));pr.appendChild(s);r.appendChild(pr);const t=doc.createElementNS(WNS,'w:t');t.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:space','preserve');t.textContent=text;r.appendChild(t);return r}
 function setBlank(p,v){if(v==null||v==='')return;const t=wq(p,'t')[0];if(t)t.textContent=String(v)}
-function appendVal(p,v,sz){if(v==null||v==='')return;const doc=p.ownerDocument,tab=wq(p,'tab').filter(t=>t.parentNode.localName==='r').pop(),r=mkRun(doc,' '+v,sz||22);if(tab&&!wq(tab.parentNode,'t').length)p.insertBefore(r,tab.parentNode);else p.appendChild(r)}
+function appendVal(p,v,sz){if(v==null||v==='')return;const doc=p.ownerDocument,tab=wq(p,'tab').filter(t=>t.parentNode.localName==='r').pop(),pt=ptxt(p),r=mkRun(doc,(/\s$/.test(pt)?'':' ')+v,sz||22);if(tab&&!wq(tab.parentNode,'t').length){p.insertBefore(r,tab.parentNode);tab.parentNode.remove();const tb=wq(p,'tabs')[0];if(tb)tb.remove()}else p.appendChild(r)}
 function boxes(p){return wq(p,'t').filter(t=>t.textContent==='¨')}
 function tick(p,i){const b=boxes(p)[i];if(b)b.textContent='þ'}
 function repAll(doc,a,b){for(const t of wq(doc,'t'))if(t.textContent.includes(a))t.textContent=t.textContent.split(a).join(b)}
@@ -749,9 +781,9 @@ function tplFill(){const f=CT.f,L=ll(),T=CT.type,ip=T==='ip',files=TPL;const dx=
  const doc=new DOMParser().parseFromString(dx,'application/xml'),body=wq(doc,'body')[0],P=wq(doc,'p');
  const lp=parsePass(L.passport),bats=[f.bat1,f.bat2].filter(Boolean).length,bspec=n=>{const v=f['bat'+n];return v&&v!=='есть'?v:(v?'есть':'')};
  const buyW=+f.bwk||0,buyS=(+f.bprice||0)*buyW,hasBuy=T!=='rent'&&buyW>0&&buyS>0;
- const LV={'ФИО полностью':ip?`Индивидуальный предприниматель ${L.name} («${L.org}»)`:L.name,'Дата рождения':(L.birth||'').split(',')[0],'Телефон':L.phone,'Паспорт: серия и номер':lp.sn,'Код подразделения':lp.code,'Дата выдачи':lp.date,'Гражданство':'Российская Федерация','Кем выдан':lp.iss,'Адрес регистрации (адрес для суда)':L.addr,'Адрес проживания':L.addr};
+ const LV={'ФИО полностью':ip?`ИП ${L.name}`:L.name,'Дата рождения':(L.birth||'').split(',')[0],'Телефон':L.phone,'Паспорт: серия и номер':lp.sn,'Код подразделения':lp.code,'Дата выдачи':lp.date,'Гражданство':'Российская Федерация','Кем выдан':lp.iss,'Адрес регистрации (адрес для суда)':L.addr,'Адрес проживания':L.addr};
  const pp=parsePass(passStr(f));
- const RV={'ФИО полностью':f.cname,'Дата рождения':[f.cbirth,f.cbplace].filter(Boolean).join(', '),'Телефон':f.cphone,'Паспорт: серия и номер':pp.sn||f.cps,'Код подразделения':f.cpk||pp.code,'Дата выдачи':f.cpd||pp.date,'Гражданство':f.ccit||'Российская Федерация','Кем выдан':f.cpi||pp.iss,'Адрес регистрации':f.caddr,'Адрес проживания':f.cliv||f.caddr};
+ const RV={'ФИО полностью':f.cname,'Дата рождения':f.cbirth,'Телефон':f.cphone,'Паспорт: серия и номер':pp.sn||f.cps,'Код подразделения':f.cpk||pp.code,'Дата выдачи':f.cpd||pp.date,'Гражданство':f.ccit||'Российская Федерация','Кем выдан':f.cpi||pp.iss,'Адрес регистрации':f.caddr,'Адрес проживания':f.cliv||f.caddr};
  const OV={'Дата':fdot(f.date),'Номер договора':f.num,'Аренда до (число, месяц, год)':fdot(f.until),'Обеспечительный платёж, рублей (пусто или 0 — не вносится)':+f.deposit>0?rubT(f.deposit):'','Сколько недель до выкупа':hasBuy?buyW:'','Сумма выкупа велосипеда, руб.':hasBuy?rubT(buyS):'','Дата акта':fdot(f.date),'Номер и дата договора':`${f.num?'№ '+f.num+' ':''}от ${fdot(f.date)}`,'Марка':f.brand,'Модель':f.model,'Год выпуска':f.year,'Цвет':f.color,'VIN / номер рамы':f.vin,'Мощность двигателя, Вт':f.power,'Пробег, км':f.mileage,'Если повреждения есть — какие':f.dmgtxt};
  // суммы
  if(f.weekly){const w=rubT(f.weekly);repAll(doc,'5 000 (пять тысяч) рублей',w);repAll(doc,'В 5 000 рублей в неделю',`В ${Number(f.weekly).toLocaleString('ru-RU').replace(/\s/g,' ')} рублей в неделю`);repAll(doc,'Суммы 5 000, 150 000 и 50 000',`Суммы ${Number(f.weekly).toLocaleString('ru-RU').replace(/\s/g,' ')}, 150 000 и 50 000`)}
@@ -769,7 +801,8 @@ function tplFill(){const f=CT.f,L=ll(),T=CT.type,ip=T==='ip',files=TPL;const dx=
   if(/^¨\s+2 АКБ\.$/.test(tl.trim())&&hasBuy&&bats===2)tick(p,0);
   const ta=f.tact||{};
   for(const [k,l] of TACT)if(tl.startsWith(l+' ')&&ta[k])tick(p,ta[k]==='ok'?0:1);
-  if(tl.startsWith('Повреждения ')&&ta.dmg)tick(p,ta.dmg==='yes'?0:1);
+  if(tl.startsWith('Повреждения ')){const ts=wq(p,'t');ts[0].textContent='Внешнее состояние (пластик, общее)  ';if(ts[2])ts[2].textContent=' целое   ';if(ts[4])ts[4].textContent=' повреждено   ';if(ta.dmg)tick(p,ta.dmg==='yes'?1:0)}
+  if(s==='Если повреждения есть — какие'){}
   if(tl.startsWith('Аккумуляторы ')&&bats)tick(p,bats-1);
   if(s==='Характеристики')appendVal(p,[bspec(1),bspec(2)].filter(x=>x&&x!=='есть').join('; '),20);
   if(s==='Ключи, шт.')appendVal(p,f.keys,20);
@@ -780,19 +813,20 @@ function tplFill(){const f=CT.f,L=ll(),T=CT.type,ip=T==='ip',files=TPL;const dx=
   if(s==='Дата'&&hasBd(p)){appendVal(p,fdot(f.date));sigD++}
  }
  if(ip){repAll(doc,'между физическими лицами · по законодательству Российской Федерации','между индивидуальным предпринимателем и физическим лицом · по законодательству Российской Федерации');
-  repAll(doc,'Гражданин Российской Федерации (Арендодатель) и гражданин Российской Федерации (Арендатор), вместе — Стороны, заключили настоящий договор (далее — Договор) как физические лица, каждый от своего имени.',`Индивидуальный предприниматель ${L.name} («${L.org}», ИНН ${L.inn}, ОГРНИП ${L.ogrnip}) (Арендодатель) и гражданин Российской Федерации (Арендатор), вместе — Стороны, заключили настоящий договор (далее — Договор).`);
-  const p0=P[0],h=p0.cloneNode(true);wq(h,'t').forEach((t,i)=>t.textContent=i?'':L.org);body.insertBefore(h,p0);
+  repAll(doc,'Гражданин Российской Федерации (Арендодатель) и гражданин Российской Федерации (Арендатор), вместе — Стороны, заключили настоящий договор (далее — Договор) как физические лица, каждый от своего имени.',`ИП ${L.name} (ИНН ${L.inn}, ОГРНИП ${L.ogrnip}) (Арендодатель) и гражданин Российской Федерации (Арендатор), вместе — Стороны, заключили настоящий договор (далее — Договор).`);
+  
   if(landlordReqAfter){const lab=P[9].nextSibling&&P[10]?P[10].cloneNode(true):null;if(lab){wq(lab,'t').forEach((t,i)=>t.textContent=i?'':`Реквизиты ИП: ИНН ${L.inn}, ОГРНИП ${L.ogrnip}, р/с ${L.rs} в ${L.bank}, ИНН банка ${L.binn}, КПП ${L.bkpp}, БИК ${L.bik}, к/с ${L.ks}. Юридический адрес: ${L.uaddr}.`);landlordReqAfter.parentNode.insertBefore(lab,landlordReqAfter.nextSibling)}}
   const p32=P.find(p=>ptxt(p).startsWith('3.2. '));if(p32){p32.appendChild(mkRun(doc,' Способ оплаты: ',20));[['pm1','перевод на р/с ИП по реквизитам'],['pm2','QR-код (СБП)'],['pm3','картой через терминал']].forEach(([k,l],i)=>{p32.appendChild(mkRun(doc,f[k]?'þ':'¨',24,0,'Wingdings'));p32.appendChild(mkRun(doc,' '+l+(i<2?'; ':'.'),20))})}
  }
  const sigP=P.filter(p=>ptxt(p).trim()==='АРЕНДОДАТЕЛЬ');if(ip&&sigP.length)sigP.slice(1).forEach(p=>{const t=wq(p,'t')[0];if(t)t.textContent='АРЕНДОДАТЕЛЬ (ИП)'});
+ for(const t of wq(doc,'t'))if(t.textContent==='¨'||t.textContent==='þ'){const r=t.parentNode,fo=wq(r,'rFonts')[0];if(fo&&/Wingdings/.test(fo.getAttributeNS(WNS,'ascii')||fo.getAttribute('w:ascii')||'')){['ascii','hAnsi','cs','eastAsia'].forEach(x=>fo.setAttributeNS(WNS,'w:'+x,'Segoe UI Symbol'));t.textContent=t.textContent==='þ'?'☒':'☐';const sz=wq(r,'sz')[0];if(sz)sz.setAttributeNS(WNS,'w:val','22')}}
  return new XMLSerializer().serializeToString(doc)}
 function tplDocx(){const xml=tplFill();return zipStore(TPL.map(([n,k,d])=>[n,n==='word/document.xml'?xml:k==='b64'?Uint8Array.from(atob(d),c=>c.charCodeAt(0)):d]))}
 // docx → HTML для предпросмотра
 function tplHtml(){const doc=new DOMParser().parseFromString(tplFill(),'application/xml'),body=wq(doc,'body')[0];
  const g=(el,path)=>{let e=el;for(const n of path.split('/')){e=e&&[...e.childNodes].find(c=>c.localName===n);if(!e)return null}return e},av=e=>e&&(e.getAttributeNS(WNS,'val')||e.getAttribute('w:val'));
  const run=r=>{let h='';const pr=g(r,'rPr'),b=pr&&g(pr,'b')&&av(g(pr,'b'))!=='0',sz=pr&&g(pr,'sz')?+av(g(pr,'sz'))/2:11,wd=pr&&g(pr,'rFonts')&&/Wingdings/.test(g(pr,'rFonts').getAttributeNS(WNS,'ascii')||g(pr,'rFonts').getAttribute('w:ascii')||'');
-  for(const c of r.childNodes){if(c.localName==='t'){let t=esc(c.textContent);if(wd)t=t.replace(/¨/g,'☐').replace(/þ/g,'☑');h+=t}else if(c.localName==='tab')h+='<span class="tb"></span>';else if(c.localName==='br')h+=av(c)==='page'||c.getAttribute('w:type')==='page'?'':'<br>'}
+  for(const c of r.childNodes){if(c.localName==='t'){let t=esc(c.textContent);if(wd)t=t.replace(/¨/g,'☐').replace(/þ/g,'☑');t=t.replace(/☒/g,'☑');h+=t}else if(c.localName==='tab')h+='<span class="tb"></span>';else if(c.localName==='br')h+=av(c)==='page'||c.getAttribute('w:type')==='page'?'':'<br>'}
   return h?`<span style="font-size:${sz}pt${b?';font-weight:bold':''}">${h}</span>`:''};
  const para=p=>{const pr=g(p,'pPr'),jc=pr&&g(pr,'jc')?av(g(pr,'jc')):'left',sp=pr&&g(pr,'spacing'),bd=pr&&g(pr,'pBdr'),lead=pr&&g(pr,'tabs');
   const bf=sp?(+(sp.getAttributeNS(WNS,'before')||sp.getAttribute('w:before')||0))/20:0,af=sp?(+(sp.getAttributeNS(WNS,'after')||sp.getAttribute('w:after')||0))/20:0;
